@@ -125,5 +125,5 @@ You can customize agent behavior in your CLAUDE.md:
 ## Next Steps
 
 - [Workflows](/workflows/planning-and-building/) — See how skills work together
-- [Skills Reference](/reference/skills/) — Browse all 35 skills
+- [Skills Reference](/reference/skills/) — Browse all 15 skills
 - [Creating Skills](/customization/creating-skills/) — Build your own

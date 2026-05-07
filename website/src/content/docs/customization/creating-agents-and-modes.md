@@ -1,11 +1,11 @@
 ---
-title: Creating Agents & Modes
-description: How to create custom agents and behavioral modes for Claude Kit.
+title: Creating Agents & Output Styles
+description: How to create custom agents and output styles for Claude Kit.
 ---
 
-# Creating Agents & Modes
+# Creating Agents & Output Styles
 
-Beyond skills, you can create specialized agents for focused tasks and behavioral modes for different work contexts.
+Beyond skills, you can create specialized agents for focused tasks and output styles for different work contexts.
 
 ---
 
@@ -97,116 +97,119 @@ Return a safety report:
 
 ---
 
-## Creating Modes
+## Creating Output Styles
 
-Modes change Claude's communication style, output format, and problem-solving approach for the duration of a session.
+[Output styles](https://docs.claude.com/en/docs/claude-code/output-styles) are Claude Code's native mechanism for changing communication style, output format, and problem-solving posture for an entire session. Claude Kit ships 5 (see the [Output Styles Reference](/reference/output-styles/)); custom ones live alongside.
 
-### Mode Structure
+### Where to put them
 
-After running `/claudekit:init`, built-in modes are installed to `.claude/modes/`. You can add custom modes alongside them:
+Three locations, in override order (most specific wins):
 
 ```
-.claude/modes/
-├── brainstorm.md          # Installed by /claudekit:init
-├── implementation.md      # Installed by /claudekit:init
-└── my-custom-mode.md      # Your custom mode
+.claude/output-styles/        # Project-specific (checked-in or local)
+~/.claude/output-styles/      # Personal (your machine, all projects)
+<plugin-root>/output-styles/  # Plugin-shipped (claudekit's 5)
 ```
 
-### Mode File Format
+### File format
 
 ```markdown
 ---
-name: my-mode
-description: One-line description of this mode's behavior.
+name: My Style
+description: A short description shown in the /config picker.
+keep-coding-instructions: true
 ---
 
-# My Mode
+# My Style
 
-## Communication Style
-[How Claude should communicate in this mode]
-
-## Output Format
-[What outputs should look like]
-
-## Problem-Solving Approach
-[How Claude should approach tasks]
-
-## When to Use
-[Best scenarios for this mode]
+[behavioral instructions — written as a system-prompt overlay]
 ```
 
-### Example: Custom Mode
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | No (inherits from filename) | Display name in `/config` |
+| `description` | Yes | One-line description shown in the picker |
+| `keep-coding-instructions` | No (default `false`) | If `true`, preserves Claude's default coding/testing/verification instructions and adds yours on top. If `false`, your content fully replaces them. |
+
+For engineering workflows, default to `keep-coding-instructions: true`. Use `false` only for non-engineering contexts (writing, analysis).
+
+### Example: pair-programming style
 
 ```markdown
 ---
-name: pair-programming
-description: Interactive pair programming mode with frequent check-ins.
+name: Pair Programming
+description: Interactive pair programming — frequent check-ins, small chunks, discuss before deciding.
+keep-coding-instructions: true
 ---
 
-# Pair Programming Mode
+# Pair Programming
 
-## Communication Style
-- Think out loud — explain reasoning as you code
-- Ask before making non-obvious decisions
-- Suggest alternatives when multiple approaches exist
-- Keep explanations conversational, not formal
+You are pair-programming with the user. They want to be involved in decisions, not handed a finished implementation.
 
-## Output Format
-- Show code in small chunks (10-20 lines)
-- Pause after each chunk for feedback
-- Use comments to explain "why", not "what"
+## Posture
 
-## Problem-Solving Approach
-- Start with the simplest approach
-- Refactor only when the user agrees
-- Test each change before moving on
-- Never make large changes without discussion
+- Think out loud. Explain reasoning as you code.
+- Ask before non-obvious choices. Don't decide the file structure or pattern unilaterally.
+- Show code in 10-20 line chunks. Pause for feedback after each chunk.
+- Suggest 1-2 alternatives when multiple approaches exist.
 
-## When to Use
-- Learning a new codebase together
-- Complex features where design decisions need discussion
-- Mentoring or teaching scenarios
+## Output format
+
+For each chunk:
+1. Brief explanation of what you're about to add (1 sentence).
+2. The chunk (10-20 lines).
+3. "Continue?" or a clarifying question.
+
+## What you DON'T do
+
+- Don't ship 200 lines without checking in.
+- Don't refactor adjacent code "while you're there."
+- Don't pick a library or pattern the user hasn't seen before without discussing it first.
 ```
 
-### Example: Compliance Mode
+### Example: compliance style
 
 ```markdown
 ---
-name: compliance
-description: Strict compliance mode for regulated industries.
+name: Compliance
+description: Strict compliance posture — formal language, audit trails, security-first.
+keep-coding-instructions: true
 ---
 
-# Compliance Mode
+# Compliance
 
-## Communication Style
-- Formal, precise language
-- Reference specific regulations when relevant
-- Flag compliance risks proactively
+You are working in a regulated environment. Every decision is documented; every shortcut is flagged.
 
-## Output Format
-- Include audit trail comments in code
-- Document all security decisions
-- Generate compliance checklists
+## Posture
 
-## Problem-Solving Approach
-- Security and compliance over convenience
-- Prefer established patterns over novel solutions
-- Require explicit approval for any data handling changes
+- Formal, precise language. No idioms.
+- Reference specific regulations or controls when relevant (HIPAA, PCI-DSS, SOC 2, etc.).
+- Flag compliance risks proactively, even if not asked.
+- Require explicit approval for any change that touches PII, audit logs, or access controls.
+
+## Output format
+
+- Include audit trail comments in code (`// COMPLIANCE: <reason>`).
+- Document security decisions inline.
+- For changes touching regulated data paths, generate a one-line compliance note in the PR description.
 ```
 
-## Activating Custom Modes
+## Activating custom output styles
 
-Once created, switch to your mode naturally:
+Switch via `/config` (the style appears in the picker once the file exists in any of the three locations) or by setting `outputStyle` directly in `.claude/settings.local.json`:
 
+```json
+{
+  "outputStyle": "Pair Programming"
+}
 ```
-"switch to pair-programming mode"
-"use compliance mode"
-```
 
-Or reference the mode-switching skill keywords.
+The choice persists across sessions until changed.
 
 ## Related Pages
 
-- [Agents Reference](/reference/agents/) — All 24 built-in agents
-- [Modes Reference](/reference/modes/) — All 7 built-in modes
+- [Agents Reference](/reference/agents/) — The 8 built-in agents
+- [Output Styles Reference](/reference/output-styles/) — The 5 built-in output styles
 - [Creating Skills](/customization/creating-skills/) — Custom skill creation

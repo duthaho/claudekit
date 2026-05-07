@@ -1,240 +1,162 @@
 # Claude Kit
 
-The development-workflow plugin for Claude Code. Opinionated skills and agents that teach Claude how to think, plan, review, and ship — so you don't spend your context window reinventing process.
+A **verification-first engineering toolkit** for Claude Code. Built for senior ICs and tech leads who already know how to ship production code — and want a workflow that keeps the discipline tight without getting in the way.
 
-## Features
+15 skills, 8 agents, one philosophy: **every claim has evidence.** No `tests pass — trust me`. No `it works in my IDE`. No `I think the cache is stale`. Skills produce artifacts you could paste into a code review.
 
-- **35 Skills** organized around a 6-phase workflow: Think → Review → Build → Ship → Maintain → Setup
-- **13 user-invocable spine skills** — typed directly as `/claudekit:<name>`, the rest auto-trigger by context
-- **24 Specialized Agents** — planners, reviewers, implementers, and 4 plan-dimension reviewers
-- **Interactive Setup Wizard** — `/claudekit:init` scaffolds rules, modes, hooks, and MCP configs
-- **7 Behavioral Modes** — task-specific response optimization (installed via init)
-- **MCP Integrations** — Context7, Sequential Thinking, Playwright, Memory, Filesystem (configured via init)
+## What makes claudekit different
 
-## Quick Start
+- **Rationalizations tables** in every skill. The excuses an engineer makes to skip a step ("I see the problem, let me just patch it") are documented in the skill itself, with rebuttals. The skill refuses to be skipped silently.
+- **Evidence requirements** at every checkpoint. Each phase produces a specific artifact. If the artifact doesn't exist, the phase wasn't completed.
+- **Pre-completion gates.** `verification-gate` runs before any "done" claim — runs the tests, checks the negative path, exercises the change in a non-IDE environment, cross-checks the original ask.
+- **No founder voice.** No "ambitious vision," no "10x outcomes," no "delight." Engineering analogies, real file paths, real commands.
+- **Plan-review pipeline as the headline.** Two parallel reviewers (architecture + experience) score 5 sub-dimensions each, consolidate into one fix gate. Catches structural issues before code.
 
-### Install via Marketplace
+## Install
 
-1. Add the claudekit marketplace:
-   ```
-   /plugin marketplace add duthaho/claudekit-marketplace
-   ```
-
-2. Install the plugin:
-   ```
-   /plugin install claudekit
-   ```
-
-3. Run the setup wizard to configure your project:
-   ```
-   /claudekit:init
-   ```
-
-   Or install everything at once:
-   ```
-   /claudekit:init --all
-   ```
-
-### Local Development
-
-Test the plugin locally without installing:
 ```
-claude --plugin-dir ./path/to/claudekit
+/plugin marketplace add duthaho/claudekit-marketplace
+/plugin install claudekit
+/claudekit:init
 ```
 
-## What `/claudekit:init` Configures
+`/claudekit:init` interactively scaffolds rules, hooks, and MCP server configs into your project's `.claude/` directory. Output styles ship with the plugin and are auto-discovered by Claude Code (no init step required).
 
-The setup wizard interactively scaffolds project-level configuration:
+## The 5-phase spine
+
+| Phase | Skills | What's enforced |
+|---|---|---|
+| **Investigate** | `investigate-root-cause`, `map-codebase`, `audit-dependencies` | Every claim about the system has a `<file:line>` citation. No memory-based assertions. |
+| **Design** | `shape-spec`, `write-plan`, `plan-review`, `plan-review-architecture`, `plan-review-experience` | Plans have file paths, exact test commands, falsifiable acceptance criteria, named rollbacks. Reviewed before implementation. |
+| **Implement** | `test-first`, `incremental-shipping` | Red-green-refactor with pasted runner output. Vertical slices behind feature flags. Refactors prove behavior preservation with test/perf deltas. |
+| **Verify** | `verification-gate`, `evidence-driven-debugging` | Mandatory pre-completion gate. Active debugging keeps a paper trail. |
+| **Ship** | `code-review-loop`, `release-and-changelog` | Reviewable PRs with verification evidence pasted. Atomic releases with diff-built changelogs. |
+| **Setup** *(off-spine)* | `init` | One-time scaffolding wizard for project-level config. |
+
+All 15 skills are user-invocable as `/claudekit:<name>`.
+
+## Output styles (5)
+
+Five Claude Code [output styles](https://docs.claude.com/en/docs/claude-code/output-styles) ship with the plugin. They're auto-discovered by Claude Code — no init step required. Switch via `/config` or by setting `outputStyle` in `.claude/settings.local.json`.
+
+| Style | When to use |
+|---|---|
+| **Brainstorm** | Creative exploration — divergent thinking, multiple alternatives, structured trade-offs before any code |
+| **Deep Research** | Thorough investigation — completeness over speed, evidence-cited findings with confidence levels |
+| **Implementation** | Code-focused execution — minimal prose, action-oriented updates, follow established patterns |
+| **Review** | Critical analysis — find issues first, severity-tagged findings, actionable suggestions |
+| **Token Efficient** | Compressed output — minimal prose, code-first, no preambles |
+
+All styles use `keep-coding-instructions: true`, so Claude's default coding/testing/verification discipline still applies underneath.
+
+## The 8-agent roster
+
+Each agent has a single dispatcher and a clear job. No agent-bloat.
+
+| Agent | Job | Dispatched by |
+|---|---|---|
+| `claudekit:planner` | Decompose specs into executable plans | `write-plan` |
+| `claudekit:architect` | Score architecture dimension of a plan | `plan-review-architecture` |
+| `claudekit:experience-reviewer` | Score UX + DX dimension of a plan | `plan-review-experience` |
+| `claudekit:investigator` | Root-cause investigation with evidence chain | `investigate-root-cause`, `evidence-driven-debugging` |
+| `claudekit:tester` | Design and write tests with red-green discipline | `test-first` |
+| `claudekit:code-reviewer` | Pre-merge structural review of diffs | `code-review-loop` |
+| `claudekit:security-auditor` | OWASP-aligned review of sensitive paths | `code-review-loop` (sensitive paths) |
+| `claudekit:scout` | Codebase mapping and dependency audits | `map-codebase`, `audit-dependencies` |
+
+## What `/claudekit:init` configures
 
 | Category | What | Location |
-|----------|------|----------|
+|---|---|---|
 | **Rules** | API, frontend, migrations, security, testing | `.claude/rules/` |
-| **Modes** | brainstorm, deep-research, default, implementation, orchestration, review, token-efficient | `.claude/modes/` |
 | **Hooks** | auto-format, block-dangerous-commands, notifications | `.claude/hooks/` + `settings.local.json` |
 | **MCP Servers** | Context7, Sequential, Playwright, Memory, Filesystem | `.mcp.json` |
 
-## Plugin Structure
+Output styles ship with the plugin (in `output-styles/`) and are auto-discovered by Claude Code; no init step needed.
+
+## Skill anatomy
+
+Every claudekit skill has 8 required sections:
+
+1. **Frontmatter** — name, user-invocable, description with trigger keywords.
+2. **Overview** — one paragraph: what the skill does, who for, what's enforced.
+3. **When to Use / When NOT to Use** — concrete trigger conditions.
+4. **Process** — numbered phases or steps with explicit Goal / Inputs / Actions / Output.
+5. **Rationalizations** — table of excuses with verbatim quotes, steelmanned reasoning, named failure modes, concrete alternatives.
+6. **Evidence Requirements** — what artifact each checkpoint must produce, with the lazy version it rejects.
+7. **Red Flags** — concrete observations that mean STOP and reassess.
+8. **References** — cited works (Software Engineering at Google, A Philosophy of Software Design, The Pragmatic Programmer, etc.) where directly relevant.
+
+## Workflow chains
+
+Pick the chain that matches your task. Each one ends at a real stopping point — not every project needs every step.
+
+### New feature
+*"There's a request. No code yet."*
 
 ```
-claudekit/
-├── .claude-plugin/
-│   └── plugin.json            # Plugin manifest
-├── skills/                    # 35 skills (auto-triggered; 13 user-invocable)
-│   ├── init/                  # Setup wizard (/claudekit:init)
-│   │   ├── SKILL.md
-│   │   └── templates/         # Rules, modes, hooks, MCP templates
-│   ├── brainstorming/
-│   ├── systematic-debugging/
-│   └── ...
-├── agents/                    # 24 specialized agents
-├── scripts/                   # Hook scripts (installed via init)
-└── website/                   # Documentation site
+shape-spec → write-plan → plan-review → [test-first + incremental-shipping] → verification-gate → code-review-loop
 ```
 
-## Agents
+`test-first` and `incremental-shipping` are paired, not sequential — every task goes through red-green-refactor while the whole slice ships behind a feature flag. For library, plugin, or CLI work that ships a tagged version, append `→ release-and-changelog`.
 
-### Core Development
-| Agent | Description |
-|-------|-------------|
-| `claudekit:planner` | Task decomposition and planning |
-| `claudekit:debugger` | Error analysis and fixing |
-| `claudekit:tester` | Test generation |
-| `claudekit:code-reviewer` | Code review with security focus |
-| `claudekit:scout` | Codebase exploration |
-
-### Operations
-| Agent | Description |
-|-------|-------------|
-| `claudekit:git-manager` | Git operations and PRs |
-| `claudekit:docs-manager` | Documentation generation |
-| `claudekit:project-manager` | Progress tracking |
-| `claudekit:database-admin` | Schema and migrations |
-| `claudekit:ui-ux-designer` | UI component creation |
-
-### Content & Research
-| Agent | Description |
-|-------|-------------|
-| `claudekit:researcher` | Technology research |
-| `claudekit:scout-external` | External resource exploration |
-| `claudekit:copywriter` | Marketing copy and release notes |
-| `claudekit:journal-writer` | Development journals and decision logs |
-
-### Extended
-| Agent | Description |
-|-------|-------------|
-| `claudekit:cicd-manager` | CI/CD pipeline management |
-| `claudekit:security-auditor` | Security reviews |
-| `claudekit:api-designer` | API design and OpenAPI |
-| `claudekit:vulnerability-scanner` | Security scanning |
-| `claudekit:pipeline-architect` | Pipeline optimization |
-
-### Plan Review
-| Agent | Description |
-|-------|-------------|
-| `claudekit:ceo-reviewer` | Strategic/scope review of a written plan (ambition, problem clarity, wedge focus, demand reality, future-fit) |
-| `claudekit:eng-reviewer` | Architecture review (data flow, failure modes, edge cases, test matrix, rollback) |
-| `claudekit:design-reviewer` | UX/visual plan review (hierarchy, consistency, states, accessibility, AI-slop avoidance) |
-| `claudekit:devex-reviewer` | Developer-experience review (TTHW, ergonomics, error copy, docs structure, magical moments) |
-
-## Skills
-
-Claude Kit is organized around a **6-phase development workflow**. Each phase has a small set of spine skills you invoke directly (`/claudekit:<name>`); supporting skills auto-trigger behind the scenes when relevant.
-
-### 🧠 Think — explore ideas, produce a spec
-
-| Skill | Description |
-|-------|-------------|
-| **brainstorming** | Interactive idea exploration, one question at a time. Includes Startup Mode (6 forcing questions) for new product ideas |
-| **writing-plans** | Break a spec into bite-sized tasks with exact code, file paths, and test commands |
-
-### 🔍 Review — pressure-test the plan before coding
-
-| Skill | Description |
-|-------|-------------|
-| **autoplan** | Run all 4 plan-review dimensions in parallel, consolidate into one fix gate |
-| **plan-ceo-review** | Strategy review — ambition, problem clarity, wedge focus, demand reality, future-fit |
-| **plan-eng-review** | Architecture review — data flow, failure modes, edge cases, test matrix, rollback |
-| **plan-design-review** | UX review — information hierarchy, visual consistency, state coverage, accessibility |
-| **plan-devex-review** | Developer experience review — TTHW, API/CLI ergonomics, error copy, docs, magical moments |
-
-Each plan-review skill dispatches a dimension-specific reviewer agent, scores 0-10 on 5 sub-dimensions, proposes concrete fixes, and applies user-selected fixes to the plan.
-
-### 🔨 Build — implement with discipline
-
-| Skill | Description |
-|-------|-------------|
-| **feature-workflow** | End-to-end orchestrator: requirements → plan → review → implement → test → review |
-| **test-driven-development** | Red-green-refactor cycle — no production code without a failing test first |
-| **systematic-debugging** | 4-phase root-cause investigation — gather, hypothesize, test, prove |
-| **verification-before-completion** | Mandatory pre-completion gate — evidence before assertions |
-
-### 🎛️ Session & Setup
-
-| Skill | Description |
-|-------|-------------|
-| **mode-switching** | Switch behavioral modes (brainstorm, token-efficient, deep-research, implementation, review) |
-| **init** | Interactive wizard — scaffolds rules, modes, hooks, and MCP configs into your project |
-
-### Also Included — 22 supporting skills (auto-trigger, non-user-invocable)
-
-These activate silently when Claude detects a matching context. You don't invoke them directly, but they shape how Claude works.
-
-| Category | Skills |
-|----------|--------|
-| **Execution & Parallelism** | executing-plans, subagent-driven-development, using-git-worktrees, finishing-a-development-branch, dispatching-parallel-agents, condition-based-waiting |
-| **Testing Discipline** | testing, playwright, testing-anti-patterns |
-| **Debug Techniques** | root-cause-tracing, defense-in-depth |
-| **Review Etiquette** | requesting-code-review, receiving-code-review |
-| **Reasoning & Meta** | sequential-thinking, writing-concisely, writing-skills, refactoring |
-| **Operations** | devops, git-workflows, performance-optimization, session-management |
-| **Security** | owasp |
-
-### Bundled Resources
-
-Spine and supporting skills include progressive-disclosure resources loaded on demand:
-
-| Resource Type | Purpose |
-|---------------|---------|
-| **references/** | Cheat sheets, decision trees, pattern catalogs |
-| **templates/** | Starter files, boilerplate, configs |
-| **scripts/** | Executable helpers for deterministic tasks |
-
-## Behavioral Modes
-
-Installed via `/claudekit:init`. Switch modes to optimize responses:
-
-| Mode | Description | Best For |
-|------|-------------|----------|
-| `default` | Balanced standard behavior | General tasks |
-| `brainstorm` | Creative exploration, questions | Design, ideation |
-| `token-efficient` | Compressed, concise output | Cost savings |
-| `deep-research` | Thorough analysis, citations | Investigation |
-| `implementation` | Code-focused, minimal prose | Executing plans |
-| `review` | Critical analysis, finding issues | Code review |
-| `orchestration` | Multi-task coordination | Parallel work |
+### Bug fix
+*"Something is broken. Fix the cause, not the symptom."*
 
 ```
-"switch to brainstorm mode"     # -> mode-switching skill activates
-"let's focus on implementation" # -> implementation mode
+investigate-root-cause → test-first (regression test) → verification-gate → code-review-loop
 ```
 
-## MCP Integrations
+`evidence-driven-debugging` activates inside Phase 3 of `investigate-root-cause` when you need runtime instrumentation (logs, breakpoints, probes) to test the hypothesis.
 
-Configured via `/claudekit:init`. MCP servers extend Claude Kit with powerful capabilities.
+### Refactor
+*"Improve structure. Preserve behavior. Prove preservation."*
 
-| Server | Package | Purpose |
-|--------|---------|---------|
-| Context7 | `@upstash/context7-mcp` | Up-to-date library documentation |
-| Sequential | `@modelcontextprotocol/server-sequential-thinking` | Multi-step reasoning |
-| Playwright | `@playwright/mcp` | Browser automation (Microsoft) |
-| Memory | `@modelcontextprotocol/server-memory` | Persistent knowledge graph |
-| Filesystem | `@modelcontextprotocol/server-filesystem` | Secure file operations |
-
-## Workflow Chains
-
-Skills chain automatically based on context:
-
-### Feature Development
 ```
-brainstorming -> writing-plans -> autoplan -> feature-workflow -> requesting-code-review -> git-workflows
+map-codebase → incremental-shipping (refactor-with-evidence section) → verification-gate → code-review-loop
 ```
 
-> `autoplan` pressure-tests the plan on strategy, architecture, design, and DX before implementation begins — optional but recommended for non-trivial features.
+The refactor-with-evidence section requires before/after test deltas (and perf numbers if perf-sensitive). That's the whole discipline — no behavior-preservation claim without measured proof.
 
-### Bug Fix
-```
-systematic-debugging -> root-cause-tracing -> test-driven-development -> verification-before-completion
-```
+### Codebase exploration
+*"How does X work? What calls Y? What's the blast radius?"*
 
-### Ship Code
 ```
-verification-before-completion -> requesting-code-review -> git-workflows -> finishing-a-development-branch
+map-codebase
 ```
 
-### Parallel Work
+Standalone. Output is an evidence-cited map you can attach to a plan or hand to a teammate. Only chain into `shape-spec` if exploration revealed a real problem worth specifying.
+
+### Dependency audit
+*"A CVE landed. Or it's quarterly hygiene. Or you're adding a new package."*
+
 ```
-dispatching-parallel-agents -> subagent-driven-development -> verification-before-completion
+audit-dependencies
 ```
+
+Standalone. Produces a per-dep table (declared / imports / verdict) plus advisory verdicts with reachability proof. Action items go into a follow-up PR.
+
+### Sensitive-path code review
+*"This diff touches auth, payments, crypto, sessions, or tokens."*
+
+```
+code-review-loop  (auto-dispatches security-auditor on sensitive paths)
+```
+
+No prep skill needed. `code-review-loop` detects sensitive paths from the diff and dispatches both `code-reviewer` and `security-auditor` automatically. You get OWASP-aligned findings alongside structural ones.
+
+### Pre-release sweep
+*"You're about to cut a tagged version of a library, plugin, or CLI."*
+
+```
+audit-dependencies → release-and-changelog
+```
+
+For library/plugin authors before tagging. The audit catches stale deps and unaccounted CVEs; the release skill builds the changelog from the actual diff (not from memory) and makes the release commit atomic.
+
+---
+
+In practice, devs skip steps for trivial work. The chains show the full discipline; use what the task earns.
 
 ## Requirements
 
@@ -248,4 +170,4 @@ MIT
 
 ---
 
-Built by duthaho
+Built by [duthaho](https://github.com/duthaho).

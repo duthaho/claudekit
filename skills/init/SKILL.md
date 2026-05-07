@@ -1,9 +1,9 @@
 ---
 name: init
 description: >
-  Interactive setup wizard for claudekit. Scaffolds rules, modes, hooks, and MCP
-  server configs into the user's project. Run /claudekit:init to configure.
-  Use when setting up a new project with claudekit or reconfiguring an existing one.
+  Interactive setup wizard for claudekit. Scaffolds rules, hooks, and MCP server
+  configs into the user's project. Run /claudekit:init to configure. Use when
+  setting up a new project with claudekit or reconfiguring an existing one.
 user-invocable: true
 argument-hint: "[--all] to skip prompts and install everything"
 ---
@@ -12,12 +12,13 @@ argument-hint: "[--all] to skip prompts and install everything"
 
 Interactive setup wizard that scaffolds project-level configuration files into the user's `.claude/` directory.
 
+Output styles ship with the plugin and are auto-discovered by Claude Code (no init step needed for them — see `output-styles/` at the plugin root).
+
 ## What It Generates
 
 | Category | Files | Location |
 |----------|-------|----------|
 | Rules | api.md, frontend.md, migrations.md, security.md, testing.md | `.claude/rules/` |
-| Modes | brainstorm.md, deep-research.md, default.md, implementation.md, orchestration.md, review.md, token-efficient.md | `.claude/modes/` |
 | Hooks | auto-format, block-dangerous-commands, notify | `.claude/hooks/` + `settings.local.json` |
 | MCP Servers | context7, sequential, playwright, memory, filesystem | `.mcp.json` |
 
@@ -43,25 +44,7 @@ If (b), list each rule with a one-line description and let user select:
 
 For each selected rule, read the template from `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/rules/<name>.md` and write it to `.claude/rules/<name>.md`.
 
-### Step 2: Modes
-
-"Which behavioral modes do you want to install?"
-- a) All modes (brainstorm, deep-research, default, implementation, orchestration, review, token-efficient)
-- b) Let me pick individually
-- c) Skip modes
-
-If (b), list each mode with a one-line description:
-- **brainstorm.md** — Creative exploration, divergent thinking, pro/con comparisons
-- **deep-research.md** — Thorough analysis with citations and evidence
-- **default.md** — Balanced standard behavior
-- **implementation.md** — Code-focused, minimal prose, maximum productivity
-- **orchestration.md** — Multi-task coordination and parallel work
-- **review.md** — Critical analysis, finding issues, security focus
-- **token-efficient.md** — Compressed output for cost savings (30-70%)
-
-For each selected mode, read the template from `${CLAUDE_PLUGIN_ROOT}/skills/init/templates/modes/<name>.md` and write it to `.claude/modes/<name>.md`.
-
-### Step 3: Hooks
+### Step 2: Hooks
 
 "Which hooks do you want to install?"
 - a) Auto-format (runs linter after Write/Edit)
@@ -97,7 +80,7 @@ Hook entry format for `settings.local.json`:
 
 If `settings.local.json` already has a `hooks` key, merge new entries into the existing structure — do not overwrite.
 
-### Step 4: MCP Servers
+### Step 3: MCP Servers
 
 "Which MCP servers do you want to configure?"
 - a) Context7 (library documentation lookup)
@@ -115,7 +98,7 @@ For each selected server:
 3. Select the correct config (`win32` or `posix` key)
 4. Merge into the project's `.mcp.json` (create with `{"mcpServers": {}}` if it doesn't exist)
 
-### Step 5: Summary
+### Step 4: Summary
 
 Print a summary table of everything installed:
 
@@ -123,14 +106,14 @@ Print a summary table of everything installed:
 Claudekit setup complete!
 
   Rules:   5 installed → .claude/rules/
-  Modes:   7 installed → .claude/modes/
   Hooks:   3 installed → .claude/hooks/ + settings.local.json
   MCP:     5 configured → .mcp.json
 
 Next steps:
-  - Skills are available as /claudekit:<name> (13 user-invocable spine + 22 auto-trigger supporting = 35 total)
-  - Agents are available as claudekit:<name> (24 agents)
-  - Switch modes: "switch to brainstorm mode"
+  - Skills available as /claudekit:<name> (15 total)
+  - Agents available as claudekit:<name> (8 specialists)
+  - Output styles available via /config (5 shipped: Brainstorm, Deep Research,
+    Implementation, Review, Token Efficient)
 ```
 
 ---
@@ -139,7 +122,6 @@ Next steps:
 
 If `$ARGUMENTS` contains `--all`, skip all prompts and install everything:
 - All 5 rules
-- All 7 modes
 - All 3 hooks
 - All 5 MCP servers
 
@@ -152,10 +134,4 @@ If `$ARGUMENTS` contains `--all`, skip all prompts and install everything:
 - **For hooks, always use `settings.local.json`** (not `settings.json`) — local is gitignored so hook config stays personal.
 - **Use `${CLAUDE_PLUGIN_ROOT}`** to reference template files within the plugin.
 - **Platform detection for MCP**: Windows uses `cmd /c npx`, macOS/Linux uses `npx` directly.
-
----
-
-## Related Skills
-
-- `writing-skills` — for creating custom skills after init
-- `mode-switching` — for using the installed modes
+- **Output styles are NOT scaffolded by init.** They ship with the plugin at `output-styles/` and are auto-discovered. Users switch them via `/config` or by setting `outputStyle` in `.claude/settings.local.json`.

@@ -1,7 +1,7 @@
 {
   "name": "claudekit",
-  "version": "3.1.0",
-  "description": "The development-workflow plugin for Claude Code — 35 skills organized around a 6-phase workflow (Think → Review → Build → Ship → Maintain → Setup), 24 agents, and an interactive setup wizard for rules, modes, hooks, and MCP servers.",
+  "version": "4.0.0",
+  "description": "Verification-first engineering toolkit for Claude Code. 15 skills across a 5-phase spine (Investigate → Design → Implement → Verify → Ship), 8 specialist agents, an interactive setup wizard. Every skill has rationalizations + evidence requirements. Built for senior ICs and tech leads.",
   "author": {
     "name": "duthaho",
     "url": "https://github.com/duthaho"
@@ -15,6 +15,9 @@
     "workflow",
     "tdd",
     "debugging",
-    "planning"
+    "planning",
+    "verification",
+    "engineering-rigor",
+    "code-review"
   ]
 }

@@ -1,147 +1,120 @@
 ---
 title: Reviewing & Shipping
-description: How Claude Kit handles code review, git workflows, PR creation, and branch management.
+description: How Claude Kit handles code review, atomic releases, and changelog discipline.
 ---
 
 # Reviewing & Shipping
 
-Claude Kit provides structured workflows for code review, committing, creating PRs, and finishing development branches.
+Two workflows: the code-review loop (between author and reviewer) and the release loop (cutting versioned, changelog-backed releases).
 
-## Code Review
+## Code review loop
 
-### Requesting Reviews
+**Triggers on**: "code review", "PR review", "request review", "address comments"
 
-**Triggers on**: completing features, before PRs, before merging
+`code-review-loop` covers both ends of the loop — preparing a reviewable PR and acting on feedback rigorously. Six steps:
 
-The requesting-code-review skill prepares code for review with:
+### Step 1: Prepare the PR
 
-- Clear scope of what changed and why
-- Areas of concern flagged for reviewers
-- Context on architectural decisions
+- Title is one verb-led line ("Add idempotency key to charge endpoint", not "Updates").
+- Description has these sections: **What** (1-3 sentences), **Why** (spec link, ticket, bug), **How** (design choice if non-obvious), **Verification** (output from `verification-gate`), **Risk + rollback** (if applicable).
+- Diff size: if >400 non-trivial lines (excluding tests, generated files, lockfiles), consider splitting. Reviewers won't read; they'll skim and approve.
 
-### Receiving Reviews
+### Step 2: Dispatch reviewer agents
 
-**Triggers on**: review feedback, PR comments, review rejections
+Before human reviewers spend their time, dispatch the agents:
 
-The receiving-code-review skill processes feedback systematically:
+- `code-reviewer` — structural findings (data flow, error handling, edge cases, complexity, naming)
+- `security-auditor` — for sensitive paths only (auth, payments, crypto, sessions, tokens)
 
-1. **Categorize** — Critical vs. important vs. minor
-2. **Prioritize** — Fix critical issues first
-3. **Implement** — Address feedback with evidence
-4. **Re-request** — Summary of changes made
+Address obvious findings yourself. Note in the PR description that automated reviewers ran.
 
-### Review Agents
+### Step 3: Receive feedback
 
-| Agent | Focus |
-|-------|-------|
-| `code-reviewer` | Quality, security, performance, maintainability |
-| `security-auditor` | OWASP compliance, vulnerability detection |
+Every comment gets one of three responses:
 
-## Git Workflows
+- **Agree + apply** — make the change, reply with the commit hash
+- **Disagree + explain** — cite evidence (a test, a constraint, a spec decision); ask if the reasoning resolves the concern
+- **Need more context** — ask for clarification
 
-**Triggers on**: "commit", "push", "PR", "ship", "changelog"
+Never silently dismiss a comment. The reviewer will assume you missed it.
 
-The git-workflows skill enforces:
+### Step 4: Apply changes in coherent commits
 
-### Conventional Commits
+- One commit per topic, even if multiple comments contributed.
+- Commit message names what changed and references the comment thread.
+- Don't squash before re-review unless project policy demands it.
 
-```
-type(scope): subject
+### Step 5: Re-request review
 
-feat(auth): add JWT token refresh endpoint
-fix(cart): handle empty cart total calculation
-docs(api): update OpenAPI spec for v2 endpoints
-```
+Add a single summary comment: what was addressed, what was pushed back on. Re-request through the platform's mechanism.
 
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+### Step 6: Close the loop
 
-### Branch Naming
+- CI green on the *most recent* commit (not the branch tip from when review was requested).
+- All comment threads resolved. Unresolved disagreement = don't merge yet.
+- Merge using the project's standard method.
 
-```
-feature/AUTH-123-jwt-refresh
-fix/CART-456-empty-total
-hotfix/critical-payment-bug
-chore/upgrade-dependencies
-```
+## Release and changelog
 
-### PR Creation
+**Triggers on**: "release", "version bump", "changelog", "tag", "publish"
 
-Claude Kit generates well-structured PRs:
+`release-and-changelog` enforces SemVer hygiene plus diff-built changelogs plus atomic release commits.
 
-```markdown
-## Summary
-- Added JWT token refresh endpoint
-- Tokens auto-refresh 5 minutes before expiry
+### SemVer discipline
 
-## Test Plan
-- [ ] Unit tests for token refresh logic
-- [ ] Integration test for refresh endpoint
-- [ ] Manual test: login → wait → verify auto-refresh
-```
+Classify each change since the last release:
 
-## Finishing a Branch
+- **Breaking** (incompatible API change, removed feature) → MAJOR bump
+- **New feature** (additive, backward-compatible) → MINOR bump
+- **Bug fix or internal improvement** → PATCH bump
 
-**Triggers on**: "ship it", "ready to merge", "branch is done", "create a PR"
+The bump is the **highest** classification across all changes. One breaking change in a release of 50 fixes is still a MAJOR bump.
 
-The finishing-a-development-branch skill runs a completion checklist:
+### Changelog from the diff
 
-1. **Verify** — All tests pass, build succeeds
-2. **Review** — Run final code review
-3. **Options** — Present merge strategies:
-   - Create PR for team review
-   - Merge directly (if authorized)
-   - Clean up worktree (if using git worktrees)
+Open `CHANGELOG.md`. Add a section: `## [<version>] - <YYYY-MM-DD>`. Subheadings as needed: Added, Changed, Deprecated, Removed, Fixed, Security.
 
-## Git Worktrees
+For each change in `git log <last-tag>..HEAD`, write one entry. Each entry:
 
-**Triggers on**: "worktree", "isolated branch", "parallel branches"
+- Names what changed in user-observable terms (not implementation terms).
+- Cites the PR or commit hash.
+- Names the consumer impact if non-trivial.
 
-The using-git-worktrees skill creates isolated working copies for:
+**Reflect the actual diff.** "Improved performance" without naming what is a finding; rewrite from the diff.
 
-- Feature work that shouldn't affect the main workspace
-- Parallel development on multiple branches
-- Safe experimentation without risk to in-progress work
+### Atomic release commit
+
+One commit. Only the version bump and the changelog. No feature changes, no fixes, no "while I was here" cleanups. The release commit is the bisect target; mixing fixes into it ties the release to those fixes.
+
+### Tag and publish
 
 ```
-main workspace:     d:/project/          (main branch)
-feature worktree:   d:/project-feature/  (feature/auth branch)
-hotfix worktree:    d:/project-hotfix/   (hotfix/payment branch)
+git tag -a v1.3.0 -m "v1.3.0 (MINOR): added X feature"
+git push origin v1.3.0
 ```
 
-## Changelog Generation
+If the project publishes to a registry (npm, PyPI, crates.io, marketplace), run the publish command. Verify the published artifact matches the tag.
 
-The git-workflows skill generates changelogs from conventional commits:
+### Post-release smoke check
 
-```markdown
-## [1.2.0] - 2026-04-19
+Install the published artifact in a clean environment (fresh container, separate venv, sandboxed install). Run a smoke check: import the package, run hello-world, hit the new feature. The smoke check catches the published-vs-source gap that CI cannot — missing files in the package manifest, registry transformations, env-var assumptions.
 
-### Added
-- JWT token refresh endpoint (AUTH-123)
-- Auto-refresh 5 minutes before expiry
+## Supporting skills
 
-### Fixed
-- Empty cart total calculation (CART-456)
-```
-
-## Supporting Skills
-
-| Skill | When It Helps |
+| Skill | When it helps |
 |-------|---------------|
-| `refactoring` | Improving code structure before shipping |
-| `writing-concisely` | Token-efficient mode for high-volume review sessions |
-| `verification-before-completion` | Mandatory evidence gate before claiming done |
+| `verification-gate` | Mandatory evidence gate before claiming the PR is ready |
+| `incremental-shipping` | Vertical slices behind feature flags; the "ship it dark first" pattern |
 
-## Supporting Agents
+## Supporting agents
 
 | Agent | Role |
 |-------|------|
-| `git-manager` | Stage, commit, push with conventional commits |
-| `code-reviewer` | Comprehensive code review |
-| `copywriter` | Release notes, changelogs, PR descriptions |
-| `docs-manager` | Keep documentation in sync with code |
+| `code-reviewer` | Pre-merge structural review |
+| `security-auditor` | OWASP-aligned review on sensitive paths |
 
-## Related Pages
+## Related pages
 
-- [Planning & Building](/workflows/planning-and-building/) — Brainstorm, plan, execute
-- [Testing & Debugging](/workflows/testing-and-debugging/) — TDD and debugging workflows
-- [Skills Reference](/reference/skills/) — All 35 skills
+- [Planning & Building](/workflows/planning-and-building/) — Spec, plan, plan-review, implement
+- [Testing & Debugging](/workflows/testing-and-debugging/) — Test-first and root-cause investigation
+- [Skills Reference](/reference/skills/) — All 16 skills

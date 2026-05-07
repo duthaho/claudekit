@@ -7,8 +7,8 @@
   "plugins": [
     {
       "name": "claudekit",
-      "description": "Development-workflow plugin — 35 skills around a 6-phase workflow, 24 agents, interactive setup wizard for rules, modes, hooks, and MCP servers.",
-      "version": "3.1.0",
+      "description": "Verification-first engineering toolkit — 15 skills around a 5-phase spine (Investigate → Design → Implement → Verify → Ship), 8 specialist agents, interactive setup wizard. Rationalizations + evidence requirements in every skill. For senior ICs and tech leads.",
+      "version": "4.0.0",
       "source": "./"
     }
   ]

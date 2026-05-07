@@ -1,9 +1,9 @@
 ---
 title: Claude Kit
-description: The development-workflow plugin for Claude Code. 35 skills across a 6-phase workflow, 24 agents, 7 modes — install as a plugin and go. Free forever.
+description: A verification-first engineering toolkit for Claude Code. 15 skills, 8 agents, 5 output styles — every claim has evidence. For senior ICs and tech leads.
 template: splash
 hero:
-  tagline: A development-workflow plugin for Claude Code. 35 skills across a 6-phase spine — Think, Review, Build, Ship, Maintain, Setup — plus 24 agents and 7 modes. Free, open source.
+  tagline: A verification-first engineering toolkit for Claude Code. 15 skills across a 5-phase spine — Investigate, Design, Implement, Verify, Ship — plus 8 specialist agents and 5 output styles. Built for senior ICs and tech leads.
   image:
     dark: ../../assets/hero-dark.svg
     light: ../../assets/hero-light.svg
@@ -20,23 +20,27 @@ hero:
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
+## What makes claudekit different
+
+Every skill has a **Rationalizations table** — the excuses an engineer makes to skip a step ("I see the problem, let me just patch it") with rebuttals. Every checkpoint has **Evidence Requirements** — a specific artifact you could paste into a code review. **Pre-completion gates** refuse "tests pass — trust me" claims. No founder voice; engineering-only rigor.
+
 ## Four layers, one plugin
 
 <CardGrid>
   <LinkCard
-    title="35 Skills"
-    description="A 6-phase workflow spine. 13 user-invocable spine skills, plus 22 that auto-trigger by context."
+    title="15 Skills"
+    description="A 5-phase spine. All user-invocable. Each skill has rationalizations + evidence + red flags."
     href="/reference/skills/"
   />
   <LinkCard
-    title="24 Agents"
-    description="Specialized subagents for code review, testing, database design, security audits, plan review, and more."
+    title="8 Agents"
+    description="One specialist per job. Planner, architect, experience-reviewer, investigator, tester, code-reviewer, security-auditor, scout."
     href="/reference/agents/"
   />
   <LinkCard
-    title="7 Modes"
-    description="Behavioral configurations — brainstorm, implementation, review, deep-research, and more."
-    href="/reference/modes/"
+    title="5 Output Styles"
+    description="Native Claude Code output styles — Brainstorm, Deep Research, Implementation, Review, Token Efficient. Switch via /config."
+    href="/reference/output-styles/"
   />
   <LinkCard
     title="MCP Servers"
@@ -58,29 +62,29 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 /claudekit:init
 ```
 
-Skills trigger automatically based on what you're doing. Ask Claude to brainstorm a feature, write a plan, debug an error, or review code — the right skills activate without any commands.
+Skills trigger automatically based on what you're doing. Ask Claude to shape a spec, write a plan, investigate a bug, or review code — the right skills activate without any commands.
 
 ## Why Claude Kit
 
-Raw Claude Code is powerful but brittle. Long sessions spiral, output quality drifts between runs, every session starts from scratch, and Claude has no built-in sense of your team's patterns.
+Raw Claude Code is powerful but brittle. Self-reported "done" claims don't hold up. Bugs get patched at the line where the error appeared, not at the cause. Plans say "implement the X" and hide three sub-decisions nobody made.
 
-| Problem | What Claude Kit adds |
+| Problem | What Claude Kit v4 adds |
 |---------|----------------------|
-| Context spirals | Fresh subagents per task; structured 6-phase flow |
-| Inconsistent output | TDD enforcement + verification-before-completion gates |
-| No structure | Skills that auto-trigger on intent, not slash commands |
-| Missing expertise | 24 specialized agents; project-level rules and modes |
+| Self-reported "done" claims | `verification-gate` — pre-completion check that requires pasted evidence |
+| Symptom-fixed bugs | `investigate-root-cause` — 4-phase, no fix without a written hypothesis |
+| Vague plans | `write-plan` — file paths, exact test commands, falsifiable acceptance per task |
+| Skip-it discipline | Rationalizations tables in every skill — the excuses get named with rebuttals |
 
-## The 6-phase workflow
+## The 5-phase workflow
 
-| Phase | What happens | Example skills |
+| Phase | What happens | Skills |
 |-------|-------------|----------------|
-| **Think** | Clarify the problem, pick an approach | `brainstorming`, `writing-plans` |
-| **Review** | Pressure-test the plan before coding | `autoplan`, `plan-eng-review`, `plan-ceo-review` |
-| **Build** | Execute with TDD, dispatch subagents, verify | `feature-workflow`, `test-driven-development` |
-| **Ship** | Commit, review, PR, changelog | `finishing-a-development-branch`, `git-workflows` |
-| **Maintain** | Debug, refactor, trace root causes | `systematic-debugging`, `root-cause-tracing` |
-| **Setup** | Install rules, modes, hooks, MCP | `init` |
+| **Investigate** | Surface every fact about the system, with file:line citations | `investigate-root-cause`, `map-codebase`, `audit-dependencies` |
+| **Design** | Spec → plan → reviewed before implementation | `shape-spec`, `write-plan`, `plan-review`, `plan-review-architecture`, `plan-review-experience` |
+| **Implement** | Red-green-refactor; vertical slices behind feature flags | `test-first`, `incremental-shipping` |
+| **Verify** | Mandatory pre-completion gate; active-debug paper trail | `verification-gate`, `evidence-driven-debugging` |
+| **Ship** | Reviewable PRs with verification evidence; atomic releases | `code-review-loop`, `release-and-changelog` |
+| **Setup** *(off-spine)* | One-time scaffolding wizard for project config | `init` |
 
 [Explore the workflows →](/workflows/planning-and-building/)
 

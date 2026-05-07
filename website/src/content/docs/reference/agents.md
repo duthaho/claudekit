@@ -1,129 +1,62 @@
 ---
 title: Agents Reference
-description: All 24 specialized subagents in Claude Kit.
+description: The 8 specialist agents in Claude Kit — each with a single dispatcher and a narrow job.
 ---
 
 # Agents Reference
 
-Agents are specialized subagents that Claude can dispatch for focused tasks. Each agent has access to specific tools and expertise, making it more effective than a general-purpose prompt for its domain.
+Claude Kit ships **8 specialist agents.** Each agent has a single dispatcher (the skill that calls it) and a narrow job. No agent-bloat; no orphans.
 
 ## How Agents Work
 
-Agents are bundled with the Claude Kit plugin. When Claude dispatches a subagent, it starts a fresh context focused entirely on the task at hand:
+When a skill needs deeper, focused work, it dispatches a specialist agent. The agent starts in a fresh context, does the focused job, and returns a structured result to the main conversation.
 
 ```
 You: "Review this code for security issues"
 
-Claude dispatches → security-auditor agent
-  → Focused security review
-  → Returns findings with severity ratings
+→ /claudekit:code-review-loop dispatches
+  → claudekit:security-auditor (sensitive path detected)
+  → Focused OWASP-aligned review
+  → Returns findings with severity + OWASP category
 ```
 
-Agents run independently and return results to the main conversation. They can be dispatched in parallel for independent tasks.
+Agents can be dispatched in parallel — `plan-review` runs `architect` and `experience-reviewer` simultaneously.
 
 ---
 
-## Planning & Research
+## The 8 agents
 
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **planner** | Designs implementation plans, identifies critical files, considers trade-offs | Planning complex features or migrations |
-| **brainstormer** | Explores solutions, evaluates architectures, debates technical decisions | Evaluating options before implementation |
-| **researcher** | Comprehensive research on technologies, libraries, and best practices | Need in-depth comparison or analysis |
-
-## Code Quality
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **code-reviewer** | Reviews code for quality, security, performance, and maintainability | After implementing features, before PRs |
-| **tester** | Runs test suites, analyzes coverage, validates error handling, verifies builds | After code changes, checking coverage |
-| **debugger** | Investigates issues, analyzes system behavior, traces root causes | Debugging test failures or production bugs |
-
-## Security
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **security-auditor** | Security audits, OWASP compliance, code vulnerability review | Before production release, security review |
-| **vulnerability-scanner** | Automated dependency scanning for known CVEs | Checking for dependency vulnerabilities |
-
-## Infrastructure & Data
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **database-admin** | Schema design, migrations, query optimization, data modeling | Database work for PostgreSQL or MongoDB |
-| **cicd-manager** | CI/CD pipeline management, deployment automation | Setting up or fixing CI pipelines |
-| **pipeline-architect** | Pipeline architecture design and build optimization | Redesigning slow CI/CD pipelines |
-
-## Content & Documentation
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **docs-manager** | API docs, READMEs, code comments, technical specifications | Documentation needs updating |
-| **copywriter** | Marketing copy, release notes, changelogs, product descriptions | User-facing content creation |
-| **journal-writer** | Development journals, decision logs, incident documentation | Recording failures or key decisions |
-
-## Design & UI
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **ui-ux-designer** | Design mockups to code, UI components, responsive/accessible layouts | Building or fixing UI components |
-| **api-designer** | RESTful/GraphQL API design, OpenAPI specifications | Designing new APIs |
-
-## Project Management
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **project-manager** | Progress tracking, roadmaps, task monitoring, status reports | Checking project progress |
-| **git-manager** | Stage, commit, push with conventional commits | Git operations |
-
-## Exploration
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **scout** | Rapidly maps internal codebase — files, patterns, dependencies | Finding code locations, understanding structure |
-| **scout-external** | Explores external resources, APIs, open-source projects | Researching external APIs or libraries |
-
-## Plan Review
-
-Dispatched by the `plan-*-review` and `autoplan` skills to score a written implementation plan on 5 dimensions (0-10) with concrete fixes. Read-only — reviewers propose, the skill applies.
-
-| Agent | Description | Use When |
-|-------|-------------|----------|
-| **ceo-reviewer** | Strategic/scope review — ambition, problem clarity, wedge focus, demand reality, future-fit | Pressure-testing a plan's scope and ambition before implementation |
-| **eng-reviewer** | Architecture review — data flow, failure modes, edge cases, test matrix, rollback | Locking in architecture before code is written |
-| **design-reviewer** | UX/visual plan review — hierarchy, consistency, states, accessibility, polish vs AI slop | Plans with UI surfaces needing a designer's-eye critique |
-| **devex-reviewer** | Developer-experience review — TTHW, ergonomics, error copy, docs, magical moments | Plans shipping APIs, CLIs, SDKs, or docs |
+| Agent | Job | Dispatched by |
+|-------|-----|---------------|
+| **claudekit:planner** | Decompose specs into executable plans (file paths, exact test commands, acceptance criteria, Risks section) | `write-plan` |
+| **claudekit:architect** | Score architecture dimension of a written plan: data flow, failure modes, edge cases, test matrix, rollback safety | `plan-review-architecture` (via `plan-review`) |
+| **claudekit:experience-reviewer** | Score UX + DX dimension: information hierarchy, state coverage, accessibility, DX ergonomics, AI-slop avoidance | `plan-review-experience` (via `plan-review`) |
+| **claudekit:investigator** | Root-cause investigation with evidence chain — never guesses, never patches symptoms | `investigate-root-cause`, `evidence-driven-debugging` |
+| **claudekit:tester** | Design and write tests with red-green discipline; pastes runner output as evidence | `test-first` |
+| **claudekit:code-reviewer** | Pre-merge structural review of diffs: error handling, edge cases, complexity, naming. Defers sensitive paths to security-auditor | `code-review-loop` |
+| **claudekit:security-auditor** | OWASP-aligned review of sensitive paths (auth, payments, crypto, sessions, tokens) | `code-review-loop` (sensitive paths only) |
+| **claudekit:scout** | Codebase mapping and dependency audits — produces evidence-cited maps with `<file:line>` references for every claim | `map-codebase`, `audit-dependencies` |
 
 ---
 
-## Dispatching Agents
+## Custom agents
 
-Claude dispatches agents automatically when appropriate. You can also request it explicitly:
+You can add project-specific agents in `.claude/agents/`. They follow the same YAML frontmatter format as bundled agents:
 
-```
-"Have the security-auditor review the auth module"
-"Ask the database-admin to optimize this query"
-"Get the code-reviewer to check my changes"
-```
+```yaml
+---
+name: my-agent
+description: "When to dispatch this agent..."
+tools: Read, Edit, Bash
+memory: project
+---
 
-### Parallel Dispatch
-
-For independent tasks, agents run in parallel:
-
-```
-You: "Review security, check test coverage, and audit the database schema"
-
-Claude dispatches simultaneously:
-  → security-auditor (auth module)
-  → tester (coverage analysis)
-  → database-admin (schema review)
+You are a [role] who [does what]. Your output is...
 ```
 
-### Agent vs. Skill
+Agent design rules:
 
-| | Skills | Agents |
-|---|--------|--------|
-| **How** | Auto-trigger by keywords | Dispatched for focused tasks |
-| **Context** | Same conversation | Fresh, isolated context |
-| **Best for** | Patterns and methodology | Focused independent work |
-| **Parallelism** | Sequential | Can run in parallel |
+- **One dispatcher per agent.** No orphans. If you can't name the skill that dispatches the agent, the agent shouldn't exist.
+- **Narrow job.** An agent that "helps with everything" helps with nothing.
+- **Output format specified.** The skill consumes a known format; the agent produces it.
+- **Refusal patterns named.** What the agent won't do is as important as what it will.

@@ -1,197 +1,140 @@
 ---
 title: Planning & Building
-description: How Claude Kit guides you from idea to implementation using brainstorming, planning, and execution skills.
+description: How Claude Kit takes you from a vague request to shipped, verified code.
 ---
 
 # Planning & Building
 
-Claude Kit provides a structured workflow for turning ideas into working code: **Brainstorm > Plan > Review > Execute > Verify**.
+The full feature loop: spec → plan → review → implement → verify. Each phase produces an artifact you could paste into a code review.
 
-## The Workflow
+## Phase 1: Shape the spec
 
-```
-"I need to add user authentication"
-        │
-        ▼
-┌─────────────────┐
-│  Brainstorming   │  Explore requirements, ask questions,
-│                  │  evaluate approaches, validate design
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Writing Plans   │  Break into tasks, exact file paths,
-│                  │  code samples, verification steps
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│    Autoplan      │  Parallel 4-angle plan review:
-│  (optional but   │  strategy, architecture, design, DX.
-│   recommended)   │  Single fix-gate before implementation.
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ Executing Plans  │  Fresh subagent per task, code review
-│                  │  between tasks, quality gates
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Verification    │  Run tests, verify builds,
-│                  │  evidence before claims
-└─────────────────┘
-```
+**Triggers on**: "spec", "what should we build", "design this", "let's add"
 
-## Phase 1: Brainstorming
-
-**Triggers on**: "brainstorm", "design", "explore", "what if", "how should we", "trade-offs"
-
-The brainstorming skill uses a three-phase process:
-
-1. **Understanding** — Asks one question at a time to clarify requirements. Prefers multiple-choice over open-ended questions.
-2. **Exploration** — Presents 2-3 approaches with trade-offs, leads with a recommendation.
-3. **Design** — Presents the validated design in digestible 200-300 word sections.
-
-### Example
+`shape-spec` turns a vague request into a written spec a teammate can read in 5 minutes. Goals, non-goals, constraints, falsifiable acceptance criteria, open questions. Engineering-flavored — no founder-mode forcing questions.
 
 ```
-You: "Let's brainstorm adding real-time notifications"
+You: "We need to add idempotency to the charge endpoint"
 
-Claude: "Which delivery mechanism fits your use case best?
-  a) WebSockets — persistent connection, instant delivery
-  b) Server-Sent Events — simpler, one-way push
-  c) Polling — simplest, but higher latency"
-
-You: "b) SSE"
-
-Claude: "## Approach 1: SSE + Redis Pub/Sub (Recommended)
-  Server pushes events via SSE, Redis coordinates across instances.
-  - Pros: Simple, works with load balancers, auto-reconnect built in
-  - Cons: One-way only (client can't push back)
-
-  ## Approach 2: SSE + PostgreSQL LISTEN/NOTIFY
-  ..."
+→ /claudekit:shape-spec
+  → asks clarifying questions, one at a time
+  → produces docs/claudekit/specs/<basename>-spec.md
 ```
 
-## Phase 2: Writing Plans
+Output is a 1-3 page Markdown spec. The non-goals list is more important than the goals list — non-goals only get pinned down when you write them.
 
-**Triggers on**: "plan", "break down", "implementation steps", "task list"
+## Phase 2: Write the plan
 
-The writing-plans skill creates detailed implementation plans with:
+**Triggers on**: "plan", "break down", "task list", "implementation order"
 
-- Exact file paths for every change
-- Complete code samples (not descriptions)
-- Verification commands with expected output
-- 2-5 minute task granularity
+`write-plan` decomposes the spec into a numbered task list. Each task names the file, the change, the test command, the acceptance check, dependency annotations.
 
-### Plan Structure
+```
+You: "/claudekit:write-plan"
 
-```markdown
-## Task 1: Create User model with email field
-
-**Files**:
-- Create: `src/models/user.ts`
-- Test: `src/models/user.test.ts`
-
-**Steps**:
-1. Write failing test
-2. Verify test fails
-3. Implement minimally
-4. Verify test passes
-5. Commit
+→ produces docs/claudekit/plans/<basename>-plan.md
 ```
 
-## Phase 2.5: Plan Review (Optional but recommended)
+Each task line:
 
-**Triggers on**: "autoplan", "auto review", "review my plan", "think bigger", "does this design make sense", "DX review"
+```
+4. src/handlers/billing/charge.ts — add idempotency-key check before insert.
+   Test: pytest tests/billing/test_charge.py -k test_idempotency
+   Acceptance: duplicate request with same key returns the original response, no double charge
+   Blocked by: 2 (schema migration)
+```
 
-Before jumping into execution, pressure-test the plan from four complementary angles. Each reviewer returns a 0-10 scorecard per dimension and proposes concrete fixes. Fixes are presented in a single multi-select prompt — you pick which ones to apply, and they're written directly into the plan file.
+Plans without file paths are wishlists; the skill refuses to ship those.
+
+## Phase 3: Plan review
+
+**Triggers on**: "review the plan", "is the plan ready", "plan-review"
+
+`plan-review` orchestrates two parallel reviewers. Each scores 5 sub-dimensions 0-10 and proposes concrete fixes. Findings consolidate into one ranked fix gate.
 
 | Skill | Dimensions scored | When to invoke |
 |-------|------------------|----------------|
-| `plan-ceo-review` | Ambition, problem clarity, wedge focus, demand reality, future-fit | Plan scope / strategy pressure-test |
-| `plan-eng-review` | Data flow, failure modes, edge cases, test matrix, rollback | Architecture audit before coding |
-| `plan-design-review` | Hierarchy, visual consistency, states, accessibility, AI-slop avoidance | Plans with UI surfaces |
-| `plan-devex-review` | Time to Hello World, ergonomics, error copy, docs structure, magical moments | Plans shipping APIs / CLIs / SDKs |
-| `autoplan` | All 4 above, fanned out in parallel, single consolidated fix gate | Full gauntlet before handoff |
+| `plan-review-architecture` | Data flow, failure modes, edge cases, test matrix, rollback safety | Architecture audit before coding |
+| `plan-review-experience` | Information hierarchy, state coverage, accessibility, DX ergonomics, AI-slop avoidance | Plans with UI or API/CLI surfaces |
+| `plan-review` | Both above, dispatched in parallel, consolidated single fix gate | Full review before handoff |
 
 ### Example
 
 ```
-You: "/claudekit:autoplan"
+You: "/claudekit:plan-review"
 
-Claude: [dispatches 4 reviewers in parallel]
+→ dispatches architect + experience-reviewer in parallel
 
-# Autoplan Review: 2026-04-24-feature-x-plan
-Overall Scores:
-  CEO:    6.2/10 (lowest: Wedge focus 4/10)
-  ENG:    7.8/10 (lowest: Rollback 5/10)
-  DESIGN: 8.4/10
-  DEVEX:  5.6/10 (lowest: Time to Hello World 3/10)
+## Architecture review
+- Data flow: 8/10
+- Failure modes: 6/10 — Task 4: cache miss path undefined
+- Edge cases: 7/10
+- Test matrix: 7/10
+- Rollback safety: 5/10 — Task 2: destructive migration without rollback
 
-Critical Issues (worst first):
-  [DEVEX] Time to Hello World: no quickstart specified
-  [CEO]   Wedge focus: covers 3 personas simultaneously
-  [ENG]   Rollback: no undo path for Phase 2 migration
-  ...
+## Experience review
+- Information hierarchy: 9/10
+- State coverage: 6/10 — Task 7: no error state for failed charge
+- Accessibility: 8/10
+- DX ergonomics: 5/10 — Task 7: error message is "Internal error"
+- AI-slop avoidance: 10/10
+
+### Consolidated fixes (ranked)
+- [Blocker] Task 2: add rollback procedure (destructive migration)
+- [Blocker] Task 4: define cache miss failure path
+- [Important] Task 7: define error state + actionable error copy
+- [Nice-to-have] ...
 
 > Which fixes to apply? [multi-select]
 ```
 
-## Phase 3: Executing Plans
+## Phase 4: Implement
 
-**Triggers on**: "execute the plan", "run the plan", "implement the plan"
+**Triggers on**: "implement", "build", "add feature", "fix bug"
 
-The executing-plans skill runs each task with:
+Each task ships with `test-first` (red-green-refactor) and `incremental-shipping` (vertical slices behind feature flags).
 
-- **Fresh subagent per task** — Prevents context pollution
-- **Code review between tasks** — Catches issues early
-- **Quality gates** — Critical issues must be fixed before proceeding
+- **Test first.** Write the failing test, watch it fail for the right reason, make it pass with the smallest change, refactor with the test as safety net. Paste runner output for each step.
+- **Vertical slices.** The smallest version of the change that delivers value, gated by a feature flag. Ship dark; ramp on.
+- **Refactor with evidence.** Behavior-preserving changes prove preservation with before/after test deltas (and perf numbers if perf-sensitive).
 
-### Execution Flow
+## Phase 5: Verify
 
-```
-Task 1 → Implement → Review → Fix issues → ✓
-Task 2 → Implement → Review → Fix issues → ✓
-Task 3 → Implement → Review → Fix issues → ✓
-Final comprehensive review → ✓
-```
+**Auto-triggers on**: completion claims ("done", "fixed", "tests pass", "ready to merge")
 
-## Phase 4: Verification
+`verification-gate` is the load-bearing pre-completion check. Six steps, ~5 minutes:
 
-**Auto-triggers on**: completion claims ("done", "fixed", "tests pass")
+1. Restate the claim: `<X> is complete because <Y>` (Y must be evidence, not "the code looks right").
+2. Run named tests with full output. Paste it.
+3. Run the negative path. Capture what happens on invalid input, missing field, network failure, max-size input.
+4. Verify in a non-IDE environment. `curl` from a separate shell, not `npm run dev` in your editor.
+5. Cross-check the original ask. Re-read the ticket; matrix what was asked to where it was addressed.
+6. Sign the gate. Add a `## Verification` section to the PR with all of the above.
 
-The verification-before-completion skill requires evidence before any completion claim:
+If the runner output isn't pasted, the gate hasn't run.
 
-- Run the actual test suite and read the output
-- Verify the build succeeds
-- Check that the feature works as intended
+## Supporting skills
 
-## Supporting Skills
+These activate automatically during planning and building:
 
-These skills activate automatically during planning and building:
-
-| Skill | When It Helps |
+| Skill | When it helps |
 |-------|---------------|
-| `feature-workflow` | End-to-end feature development |
-| `sequential-thinking` | Complex decisions needing step-by-step reasoning |
-| `subagent-driven-development` | Fresh subagent per task with two-stage review |
-| `using-git-worktrees` | Isolated branch work for parallel development |
-| `dispatching-parallel-agents` | Launching independent parallel agents |
-| `refactoring` | Improving code structure before shipping |
+| `map-codebase` | When you need to understand an unfamiliar area before shaping a spec or plan |
+| `audit-dependencies` | Before adding a new third-party package, or after a CVE alert |
 
-## Supporting Agents
+## Supporting agents
+
+The skills above dispatch these agents:
 
 | Agent | Role |
 |-------|------|
-| `planner` | Research and create implementation plans |
-| `brainstormer` | Explore solutions and evaluate trade-offs |
-| `researcher` | Research technologies and best practices |
-| `ceo-reviewer` | Strategic/scope pressure test on a written plan |
-| `eng-reviewer` | Architecture review on a written plan |
-| `design-reviewer` | UX/visual review on a written plan |
-| `devex-reviewer` | Developer-experience review on a written plan |
+| `planner` | Decompose specs into executable plans |
+| `architect` | Score architecture dimension of a plan |
+| `experience-reviewer` | Score UX + DX dimension of a plan |
+| `tester` | Design and write tests with red-green discipline |
 
-## Related Pages
+## Related pages
 
-- [Testing & Debugging](/workflows/testing-and-debugging/) — TDD and debugging workflows
-- [Reviewing & Shipping](/workflows/reviewing-and-shipping/) — Code review and git workflows
-- [Skills Reference](/reference/skills/) — All 35 skills
+- [Testing & Debugging](/workflows/testing-and-debugging/) — `test-first` and root-cause investigation
+- [Reviewing & Shipping](/workflows/reviewing-and-shipping/) — code review and release workflows
+- [Skills Reference](/reference/skills/) — All 16 skills

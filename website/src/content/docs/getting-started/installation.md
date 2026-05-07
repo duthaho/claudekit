@@ -26,7 +26,7 @@ Claude Kit installs as a Claude Code plugin via a marketplace. Setup takes under
 /plugin install claudekit
 ```
 
-That's it — all 35 skills and 24 agents are now available. Skills auto-trigger based on context; the 13 spine skills can also be typed as `/claudekit:<skill-name>`, and agents can be dispatched as `claudekit:<agent-name>`.
+That's it — all 15 skills and 8 agents are now available. Skills auto-trigger based on context; the 13 spine skills can also be typed as `/claudekit:<skill-name>`, and agents can be dispatched as `claudekit:<agent-name>`.
 
 ### Step 3: Configure Your Project (Optional)
 
@@ -67,16 +67,16 @@ After installing, skills trigger automatically based on your conversation:
 
 ```
 You: "I need to add user authentication to our app"
-     → triggers: claudekit:brainstorming, claudekit:writing-plans
+     → triggers: claudekit:shape-spec, claudekit:write-plan
 
 You: "There's a TypeError in the UserService"
-     → triggers: claudekit:systematic-debugging
+     → triggers: claudekit:investigate-root-cause
 ```
 
 You can also invoke skills manually:
 
 ```
-/claudekit:brainstorming
+/claudekit:shape-spec
 /claudekit:init
 ```
 

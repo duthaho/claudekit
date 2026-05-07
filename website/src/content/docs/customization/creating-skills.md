@@ -153,7 +153,7 @@ description: Use when deploying to Fly.io or configuring Fly.io
 - Setting up Fly.io machines or volumes
 
 ## When NOT to Use
-- Deploying to other platforms (use devops skill instead)
+- Deploying to other platforms (this skill is Fly.io-specific)
 
 ---
 

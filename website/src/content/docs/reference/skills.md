@@ -1,138 +1,89 @@
 ---
 title: Skills Reference
-description: All 35 skills in Claude Kit, organized around the 6-phase development workflow.
+description: 16 skills in Claude Kit organized around the 5-phase verification-first workflow.
 ---
 
 # Skills Reference
 
-Claude Kit is organized around a **6-phase development workflow**. 13 spine skills are user-invocable — typed directly as `/claudekit:<name>` — and 22 supporting skills auto-trigger by context behind the scenes.
+Claude Kit is organized around a **5-phase verification-first workflow**: Investigate → Design → Implement → Verify → Ship. All 14 spine skills (plus 2 setup skills) are user-invocable as `/claudekit:<name>`.
+
+Every skill has 8 required sections: Frontmatter, Overview, When to Use, Process, **Rationalizations table**, **Evidence Requirements**, Red Flags, References. The Rationalizations pattern documents the excuses an engineer makes to skip a step (verbatim) with rebuttals. The Evidence Requirements name what artifact each checkpoint must produce.
 
 ## How Skills Work
 
 Skills have trigger descriptions with keywords. When your conversation matches, the skill loads automatically:
 
 ```
-"fix this bug"           → systematic-debugging, root-cause-tracing
-"plan the feature"       → brainstorming, writing-plans
-"review my plan"         → plan-ceo-review, plan-eng-review
-"switch to brainstorm"   → mode-switching, brainstorming
+"why is this broken?"     → investigate-root-cause
+"how does X work?"        → map-codebase
+"plan this feature"       → shape-spec, write-plan
+"review the plan"         → plan-review (dispatches architect + experience reviewer)
+"is it done?"             → verification-gate
+"open a PR"               → code-review-loop
+"cut a release"           → release-and-changelog
 ```
 
-You can also invoke spine skills directly by typing `/claudekit:<name>`. Project-level skills go in `.claude/skills/`.
+You can also invoke any skill directly by typing `/claudekit:<name>`.
 
 ---
 
-## 🧠 Think
+## 🔍 Investigate
 
-Explore ideas, refine requirements, produce a spec.
-
-| Skill | Description | Triggers On |
-|-------|-------------|-------------|
-| **brainstorming** | Interactive design — one question at a time. Includes Startup Mode (6 forcing questions) for new product ideas | "brainstorm", "design", "explore", "is this worth building" |
-| **writing-plans** | Break a spec into bite-sized tasks with exact code, file paths, and verification commands | "plan", "break down", "task list", "implementation steps" |
-
-## 🔍 Review
-
-Pressure-test a written plan before coding. Each dimension scores 0-10 with a one-sentence rationale and concrete fixes. Selected fixes are written directly into the plan file.
-
-| Skill | Dimensions scored | When to invoke |
-|-------|------------------|----------------|
-| **autoplan** | All 4 below, parallel fan-out, single consolidated fix gate | Full gauntlet before handoff — "autoplan", "auto review", "run all reviews" |
-| **plan-ceo-review** | Ambition, problem clarity, wedge focus, demand reality, future-fit | Scope / strategy pressure-test — "think bigger", "scope review" |
-| **plan-eng-review** | Data flow, failure modes, edge cases, test matrix, rollback | Architecture audit — "does this design make sense", "lock in the plan" |
-| **plan-design-review** | Hierarchy, visual consistency, state coverage, accessibility, AI-slop avoidance | Plans with UI surfaces — "design critique", "avoid AI slop" |
-| **plan-devex-review** | Time to Hello World, ergonomics, error copy, docs structure, magical moments | Plans shipping APIs / CLIs / SDKs — "DX review", "is this SDK ergonomic" |
-
-## 🔨 Build
-
-Implement with discipline — TDD, systematic debugging, and verification gates.
+Surface every fact about the system before forming a theory. Every claim has a `<file:line>` citation; no memory-based assertions.
 
 | Skill | Description | Triggers On |
 |-------|-------------|-------------|
-| **feature-workflow** | End-to-end orchestrator: requirements → plan → review → implement → test → review | "feature", "implement end-to-end" |
-| **test-driven-development** | Strict red-green-refactor — no production code without a failing test first | "implement", "add feature", "fix bug", "build" |
-| **systematic-debugging** | 4-phase investigation: observe, hypothesize, test, prove | "bug", "error", "broken", stack traces |
-| **verification-before-completion** | Mandatory evidence before any completion claim | "done", "fixed", "tests pass" |
+| **investigate-root-cause** | 4-phase: gather → hypothesize → test → prove. Mandatory before any fix. | "bug", "error", "broken", "why does this", stack traces |
+| **map-codebase** | Methodical evidence-cited exploration. Produces a written map a teammate can read in 3 minutes. | "how does X work", "trace", "find where", "scope of change" |
+| **audit-dependencies** | Dependency archaeology — what's actually used vs declared, with import-graph and reachability checks for CVEs. | "deps", "audit", "CVE", "stale package", "do we use" |
 
-## 🎛️ Session
+## 🎨 Design
 
-| Skill | Description | Triggers On |
-|-------|-------------|-------------|
-| **mode-switching** | Switch behavioral modes (brainstorm, token-efficient, deep-research, implementation, review) | "mode", "switch to brainstorm" |
-
-## ⚙️ Setup
+Convert a vague request into a written spec, then a numbered plan, then survive review before implementation begins.
 
 | Skill | Description | Triggers On |
 |-------|-------------|-------------|
-| **init** | Interactive setup wizard — scaffolds rules, modes, hooks, MCP configs into your project | `/claudekit:init` (user-invocable) |
+| **shape-spec** | One-to-three-page spec with goals, non-goals, constraints, falsifiable acceptance criteria, open questions. Engineering-flavored. | "spec", "what should we build", "design this", "let's add" |
+| **write-plan** | Numbered task list with file paths, exact test commands, dependency annotations, acceptance per task, Risks section. | "plan", "break down", "task list", "implementation order" |
+| **plan-review** | Orchestrator: dispatches 2 reviewers in parallel, consolidates into one fix gate, applies user-selected fixes. | "review the plan", "is the plan ready", "plan-review" |
+| **plan-review-architecture** | Scores 5 sub-dimensions 0-10 (data flow, failure modes, edge cases, test matrix, rollback). | "architecture review", "data flow", "failure modes", "rollback" |
+| **plan-review-experience** | Scores 5 sub-dimensions 0-10 (info hierarchy, state coverage, accessibility, DX ergonomics, AI-slop avoidance). | "UX review", "DX review", "API ergonomics", "states", "accessibility" |
+
+## 🔨 Implement
+
+Ship code with red-green-refactor discipline; vertical slices behind feature flags; refactor with evidence.
+
+| Skill | Description | Triggers On |
+|-------|-------------|-------------|
+| **test-first** | Red-green-refactor with strict evidence requirements. | "implement", "fix bug", "TDD", "write the test first" |
+| **incremental-shipping** | Vertical slices behind feature flags plus refactor-with-evidence (test/perf deltas required). | "feature flag", "incremental", "vertical slice", "rollout" |
+
+## ✅ Verify
+
+Mandatory pre-completion gate. No "tests pass — trust me." Active debugging keeps a paper trail.
+
+| Skill | Description | Triggers On |
+|-------|-------------|-------------|
+| **verification-gate** | 6-step pre-completion gate: claim → tests → negative path → non-IDE check → cross-check → sign. | "done", "complete", "ready to merge", "tests pass" |
+| **evidence-driven-debugging** | Active-debugging companion to investigate-root-cause: instrument, capture, verdict, clean up. | "debug", "instrument", "log", "trace", "what's happening at runtime" |
+
+## 🚀 Ship
+
+Reviewable PRs with verification evidence pasted; atomic releases with diff-built changelogs.
+
+| Skill | Description | Triggers On |
+|-------|-------------|-------------|
+| **code-review-loop** | End-to-end review etiquette: requesting and receiving feedback. Dispatches code-reviewer and (on sensitive paths) security-auditor. | "code review", "PR review", "request review", "address comments" |
+| **release-and-changelog** | SemVer hygiene plus diff-built changelogs plus atomic release commits plus post-release smoke check. | "release", "version bump", "changelog", "tag", "publish" |
 
 ---
 
-## Supporting Skills (auto-trigger, non-user-invocable)
+## ⚙️ Setup (off-spine)
 
-These 22 skills activate silently when Claude detects a matching context. You don't invoke them directly — they shape how Claude works within the spine phases above.
+Used once for project bootstrap, plus session-level mode switching.
 
-### Execution & Parallelism
+| Skill | Description | Triggers On |
+|-------|-------------|-------------|
+| **init** | Interactive setup wizard — scaffolds rules, hooks, and MCP configs into your project | `/claudekit:init` |
 
-| Skill | Triggers On |
-|-------|-------------|
-| **executing-plans** | "execute the plan", "run the plan" |
-| **subagent-driven-development** | "use subagents", "dispatch agents", parallel task execution |
-| **using-git-worktrees** | "worktree", "isolated branch", parallel development |
-| **finishing-a-development-branch** | "ship it", "ready to merge", "branch is done" |
-| **dispatching-parallel-agents** | 3+ independent failures or tasks |
-| **condition-based-waiting** | "wait for", "check status", polling CI pipelines |
-
-### Testing Discipline
-
-| Skill | Triggers On |
-|-------|-------------|
-| **testing** | pytest, Vitest, Jest — fixtures, mocking, coverage config |
-| **playwright** | E2E tests, page objects, visual regression |
-| **testing-anti-patterns** | "flaky test", "mock", test review — catches unreliable tests |
-
-### Debug Techniques
-
-| Skill | Triggers On |
-|-------|-------------|
-| **root-cause-tracing** | Deep bugs where error location differs from bug origin |
-| **defense-in-depth** | Data integrity bugs, single-point bypass scenarios |
-
-### Review Etiquette
-
-| Skill | Triggers On |
-|-------|-------------|
-| **requesting-code-review** | Before PRs, before merging |
-| **receiving-code-review** | Review comments, PR feedback |
-
-### Reasoning & Meta
-
-| Skill | Triggers On |
-|-------|-------------|
-| **sequential-thinking** | Complex decisions needing step-by-step reasoning |
-| **writing-concisely** | "be concise", "code only" — 30-70% token savings |
-| **writing-skills** | "create a skill", "new skill" |
-| **refactoring** | "refactor", "clean up", "simplify" |
-
-### Operations
-
-| Skill | Triggers On |
-|-------|-------------|
-| **devops** | Docker, GitHub Actions, Cloudflare Workers — CI/CD, deployment |
-| **git-workflows** | "commit", "PR", "ship", "changelog" |
-| **performance-optimization** | "slow", "optimize", "profiling", N+1 queries, bundle size |
-| **session-management** | "checkpoint", "index", "status", context loading |
-
-### Security
-
-| Skill | Triggers On |
-|-------|-------------|
-| **owasp** | Security review, user input, authentication, CORS, CSP |
-
----
-
-## Counts
-
-- **Total:** 35 skills
-- **Spine (user-invocable):** 13 — brainstorming, writing-plans, autoplan, plan-ceo-review, plan-eng-review, plan-design-review, plan-devex-review, feature-workflow, test-driven-development, systematic-debugging, verification-before-completion, mode-switching, init
-- **Supporting (auto-trigger only):** 22
+To switch session behavior (Brainstorm, Implementation, Review, etc.), use Claude Code's native [output styles](/reference/output-styles/) instead of a skill — switch via `/config`.

@@ -9,7 +9,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Claude Kit',
-      description: 'The development-workflow plugin for Claude Code. 35 skills organized around a 6-phase workflow (Think → Review → Build → Ship → Maintain → Setup), 24 agents, 7 modes. Free forever.',
+      description: 'A verification-first engineering toolkit for Claude Code. 15 skills across a 5-phase spine (Investigate → Design → Implement → Verify → Ship), 8 specialist agents, 5 output styles. Free forever.',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/duthaho/claudekit' }
       ],
@@ -60,7 +60,7 @@ export default defineConfig({
           items: [
             { label: 'Skills', slug: 'reference/skills' },
             { label: 'Agents', slug: 'reference/agents' },
-            { label: 'Modes', slug: 'reference/modes' },
+            { label: 'Output Styles', slug: 'reference/output-styles' },
             { label: 'MCP Servers', slug: 'reference/mcp-servers' },
           ],
         },
@@ -68,7 +68,7 @@ export default defineConfig({
           label: 'Customization',
           items: [
             { label: 'Creating Skills', slug: 'customization/creating-skills' },
-            { label: 'Creating Agents & Modes', slug: 'customization/creating-agents-and-modes' },
+            { label: 'Creating Agents & Output Styles', slug: 'customization/creating-agents-and-modes' },
           ],
         },
       ],
