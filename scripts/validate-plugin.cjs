@@ -41,12 +41,15 @@ const fail = (file, msg) => errors.push(`${file}: ${msg}`);
 // --- Skill checks ---------------------------------------------------------
 
 function parseFrontmatter(file, text) {
-  const lines = text.split("\n");
+  // Normalize CRLF so Windows-committed files don't false-fail.
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
   if (lines[0].trim() !== "---") {
     fail(file, "missing YAML frontmatter (file must start with ---)");
     return null;
   }
-  const end = lines.indexOf("---", 1);
+  // Match the closing delimiter tolerantly (trailing whitespace), so we never
+  // latch onto a later "---" horizontal rule in the body.
+  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
   if (end === -1) {
     fail(file, "unterminated YAML frontmatter");
     return null;
@@ -54,18 +57,47 @@ function parseFrontmatter(file, text) {
   const keys = {};
   for (const line of lines.slice(1, end)) {
     const m = line.match(/^([A-Za-z][A-Za-z0-9_-]*):(.*)$/); // top-level keys only
-    if (m) keys[m[1]] = m[2].trim();
+    if (m) {
+      // Drop inline comments, then surrounding quotes ("x" / 'x').
+      let v = m[2].replace(/\s#.*$/, "").trim();
+      const q = v.match(/^(["'])(.*)\1$/);
+      if (q) v = q[2];
+      keys[m[1]] = v;
+    }
   }
   return { keys, body: lines.slice(end + 1).join("\n") };
+}
+
+// Blank out fenced code blocks so example headings/tables inside ``` fences
+// don't fool the section checks (line count is preserved).
+function stripFences(body) {
+  let inFence = false;
+  return body
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        return "";
+      }
+      return inFence ? "" : line;
+    })
+    .join("\n");
 }
 
 function checkSkill(dirName, file, text) {
   const parsed = parseFrontmatter(file, text);
   if (!parsed) return;
-  const { keys, body } = parsed;
+  const { keys } = parsed;
+  const body = stripFences(parsed.body);
 
   for (const key of REQUIRED_FRONTMATTER) {
-    if (!(key in keys)) fail(file, `frontmatter missing required key "${key}"`);
+    if (!(key in keys)) {
+      fail(file, `frontmatter missing required key "${key}"`);
+    } else if (keys[key] === "" && key !== "description") {
+      // description is often a folded block (`description: >`), so an empty
+      // inline value is legitimate there; name/user-invocable must be inline.
+      fail(file, `frontmatter key "${key}" has an empty value`);
+    }
   }
   if (keys.name && keys.name !== dirName) {
     fail(file, `frontmatter name "${keys.name}" does not match directory name "${dirName}"`);
@@ -118,6 +150,9 @@ function checkVersionSync() {
     return fail(".claude-plugin/marketplace.json", `unreadable or invalid JSON (${e.message})`);
   }
 
+  if (!plugin.version || typeof plugin.version !== "string") {
+    return fail(".claude-plugin/plugin.json", 'missing or empty "version"');
+  }
   const entry = (market.plugins || []).find((p) => p.name === plugin.name);
   if (!entry) {
     return fail(
@@ -139,9 +174,22 @@ function main() {
   const skillsDir = path.join(ROOT, "skills");
   let skillCount = 0;
 
-  for (const dirName of fs.readdirSync(skillsDir).sort()) {
+  let dirNames = [];
+  try {
+    dirNames = fs.readdirSync(skillsDir).sort();
+  } catch (e) {
+    fail("skills/", `unreadable directory (${e.message}) — wrong repo root?`);
+  }
+  for (const dirName of dirNames) {
     const dir = path.join(skillsDir, dirName);
-    if (!fs.statSync(dir).isDirectory()) continue;
+    let stat;
+    try {
+      stat = fs.statSync(dir); // throws on dangling symlinks
+    } catch (e) {
+      fail(`skills/${dirName}`, `unreadable entry (${e.message})`);
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
     const file = path.join(dir, "SKILL.md");
     const rel = path.relative(ROOT, file);
     if (!fs.existsSync(file)) {
@@ -150,6 +198,9 @@ function main() {
     }
     skillCount++;
     checkSkill(dirName, rel, fs.readFileSync(file, "utf8"));
+  }
+  if (skillCount === 0 && errors.length === 0) {
+    fail("skills/", "no skills found — wrong repo root?");
   }
 
   checkVersionSync();
