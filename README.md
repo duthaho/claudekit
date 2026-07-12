@@ -158,6 +158,16 @@ For library/plugin authors before tagging. The audit catches stale deps and unac
 
 In practice, devs skip steps for trivial work. The chains show the full discipline; use what the task earns.
 
+## Development
+
+CI (`.github/workflows/validate.yml`) lints every skill against the 8-section
+anatomy above and checks `plugin.json`/`marketplace.json` version sync. Run
+locally before committing:
+
+```
+node scripts/validate-plugin.cjs
+```
+
 ## Requirements
 
 - Claude Code 1.0+
