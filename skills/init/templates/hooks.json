@@ -11,6 +11,18 @@
     "script": "block-dangerous-commands.cjs",
     "description": "Blocks rm -rf /, force push to main, hard reset, DROP TABLE, etc."
   },
+  "detect-secrets": {
+    "event": "PreToolUse",
+    "matcher": "Write|Edit",
+    "script": "detect-secrets.cjs",
+    "description": "Blocks writes containing secret-looking content (API keys, tokens, private key blocks)"
+  },
+  "guard-sensitive-files": {
+    "event": "PreToolUse",
+    "matcher": "Write|Edit",
+    "script": "guard-sensitive-files.cjs",
+    "description": "Blocks edits to .env files, key material (.pem/.key/id_rsa), and credential dotfiles"
+  },
   "notify": {
     "event": "Notification",
     "matcher": "",
