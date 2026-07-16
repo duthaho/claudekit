@@ -12,3 +12,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate skill anatomy + version sync
         run: node scripts/validate-plugin.cjs
+      - name: Check frontmatter token budgets
+        run: node scripts/token-report.cjs --check
