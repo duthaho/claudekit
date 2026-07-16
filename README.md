@@ -161,11 +161,13 @@ In practice, devs skip steps for trivial work. The chains show the full discipli
 ## Development
 
 CI (`.github/workflows/validate.yml`) lints every skill against the 8-section
-anatomy above and checks `plugin.json`/`marketplace.json` version sync. Run
-locally before committing:
+anatomy above, checks `plugin.json`/`marketplace.json` version sync, and
+enforces token budgets on the always-loaded skill/agent frontmatter (the
+"no agent-bloat" claim, measured). Run locally before committing:
 
 ```
 node scripts/validate-plugin.cjs
+node scripts/token-report.cjs --check
 ```
 
 ## Requirements
