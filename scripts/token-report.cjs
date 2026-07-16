@@ -9,9 +9,11 @@
  * magnitude, not an exact count.
  *
  * Usage:
- *   node scripts/token-report.cjs           # report only, always exit 0
+ *   node scripts/token-report.cjs           # report; exit 0 (budgets warn only)
  *   node scripts/token-report.cjs --check   # exit 1 if any budget exceeded
  *   node scripts/token-report.cjs [--check] [repo-root]
+ *
+ * Exit codes: 0 ok · 1 budget breach (--check) or nothing found · 2 bad usage.
  */
 "use strict";
 
@@ -20,6 +22,11 @@ const path = require("path");
 
 const args = process.argv.slice(2);
 const CHECK = args.includes("--check");
+const unknown = args.find((a) => a.startsWith("-") && a !== "--check");
+if (unknown) {
+  console.error(`Unknown flag "${unknown}". Usage: token-report.cjs [--check] [repo-root]`);
+  process.exit(2);
+}
 const ROOT = path.resolve(
   args.find((a) => a !== "--check") || path.join(__dirname, "..")
 );
@@ -43,6 +50,31 @@ function frontmatter(text) {
   return lines.slice(1, end).join("\n");
 }
 
+// Read a file's frontmatter; returns { tokens, broken }. A listed-but-
+// unreadable entry (dangling symlink, directory named *.md) is reported as
+// broken rather than crashing the run.
+function measure(fullPath) {
+  let text;
+  try {
+    text = fs.readFileSync(fullPath, "utf8");
+  } catch {
+    return { tokens: 0, broken: true };
+  }
+  const fm = frontmatter(text);
+  return { tokens: fm === null ? 0 : estTokens(fm), broken: fm === null };
+}
+
+// True when a path exists as a directory entry at all — including a dangling
+// symlink, which fs.existsSync() (target-following) would miss.
+function entryExists(p) {
+  try {
+    fs.lstatSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function collect() {
   const rows = [];
   const skillsDir = path.join(ROOT, "skills");
@@ -51,14 +83,12 @@ function collect() {
   if (fs.existsSync(skillsDir)) {
     for (const d of fs.readdirSync(skillsDir).sort()) {
       const f = path.join(skillsDir, d, "SKILL.md");
-      if (!fs.existsSync(f)) continue;
-      const fm = frontmatter(fs.readFileSync(f, "utf8"));
+      if (!entryExists(f)) continue; // absent SKILL.md is validate-plugin's territory
       rows.push({
         kind: "skill",
         name: d,
         file: path.relative(ROOT, f),
-        tokens: fm === null ? 0 : estTokens(fm),
-        broken: fm === null,
+        ...measure(f),
       });
     }
   }
@@ -66,13 +96,11 @@ function collect() {
     for (const f of fs.readdirSync(agentsDir).sort()) {
       if (!f.endsWith(".md")) continue;
       const full = path.join(agentsDir, f);
-      const fm = frontmatter(fs.readFileSync(full, "utf8"));
       rows.push({
         kind: "agent",
         name: f.replace(/\.md$/, ""),
         file: path.relative(ROOT, full),
-        tokens: fm === null ? 0 : estTokens(fm),
-        broken: fm === null,
+        ...measure(full),
       });
     }
   }
@@ -88,7 +116,7 @@ function main() {
 
   const violations = [];
   for (const r of rows) {
-    if (r.broken) violations.push(`${r.file}: missing/unterminated frontmatter`);
+    if (r.broken) violations.push(`${r.file}: unreadable file or missing/unterminated frontmatter`);
     else if (r.tokens > BUDGET[r.kind]) {
       violations.push(
         `${r.file}: ~${r.tokens} tokens exceeds ${r.kind} budget ${BUDGET[r.kind]}`
