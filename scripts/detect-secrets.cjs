@@ -12,15 +12,15 @@
 "use strict";
 
 const SECRET_PATTERNS = [
-  { name: "AWS access key", re: /\bAKIA[0-9A-Z]{16}\b/ },
-  { name: "GitHub token", re: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/ },
-  { name: "Slack token", re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
-  { name: "Google API key", re: /\bAIza[0-9A-Za-z_-]{35}\b/ },
+  { name: "AWS access key", re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/ },
+  { name: "GitHub token", re: /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{40,})\b/ },
+  { name: "Slack token", re: /\bxox[a-z]-[A-Za-z0-9-]{10,}\b/ },
+  { name: "Google API key", re: /\bAIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/ },
   { name: "Stripe live key", re: /\b[sr]k_live_[0-9a-zA-Z]{16,}\b/ },
   { name: "npm token", re: /\bnpm_[A-Za-z0-9]{30,}\b/ },
   { name: "Anthropic API key", re: /\bsk-ant-[A-Za-z0-9_-]{16,}\b/ },
-  { name: "OpenAI API key", re: /\bsk-proj-[A-Za-z0-9_-]{16,}\b/ },
-  { name: "private key block", re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
+  { name: "OpenAI API key", re: /\bsk-(proj-[A-Za-z0-9_-]{16,}|[A-Za-z0-9]{32,})\b/ },
+  { name: "private key block", re: /-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----/ },
 ];
 
 async function main() {

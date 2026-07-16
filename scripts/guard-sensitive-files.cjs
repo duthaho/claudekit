@@ -15,9 +15,9 @@ const ALLOWED = [/\.env\.(example|sample|template)$/i];
 const SENSITIVE_PATTERNS = [
   { name: "env file", re: /(^|\/)\.env(\.[^/]+)?$/i },
   { name: "key material", re: /\.(pem|key|p12|pfx)$/i },
-  { name: "SSH private key", re: /(^|\/)id_(rsa|ed25519|ecdsa|dsa)[^/]*$/ },
-  { name: "credential file", re: /(^|\/)\.(netrc|npmrc|git-credentials)$/ },
-  { name: "AWS credentials", re: /(^|\/)\.aws\/credentials$/ },
+  { name: "SSH private key", re: /(^|\/)id_(rsa|ed25519|ecdsa|dsa)[^/]*$/i },
+  { name: "credential file", re: /(^|\/)\.(netrc|npmrc|git-credentials)$/i },
+  { name: "AWS credentials", re: /(^|\/)\.aws\/credentials$/i },
 ];
 
 async function main() {

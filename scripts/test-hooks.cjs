@@ -24,6 +24,12 @@ const edit = (new_string, file_path = "src/app.js", old_string = "old") => ({
 // Fixture secrets are synthetic (right shape, fake values).
 const FAKE = {
   aws: "AKIA" + "ABCDEFGHIJKLMNOP",
+  awsTemp: "ASIA" + "ABCDEFGHIJKLMNOP",
+  githubPat: "github_pat_" + "11ABCDEFG0" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4y5Z6a7B8",
+  slackRefresh: "xoxe-" + "1-My1234567890abcdefghijklmnop",
+  googleDash: "AIza" + "SyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6-",
+  openaiLegacy: "sk-" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4",
+  pgp: "-----BEGIN PGP PRIVATE KEY BLOCK-----\nlQdGBF...\n-----END PGP PRIVATE KEY BLOCK-----",
   github: "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8",
   slack: "xoxb-" + "123456789012-1234567890123-abcdefghijklmnopqrstuvwx",
   google: "AIza" + "SyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6q",
@@ -46,6 +52,12 @@ const CASES = {
     ["Anthropic key", write(`ANTHROPIC_API_KEY=${FAKE.anthropic}`), 2],
     ["OpenAI project key", write(`OPENAI_API_KEY=${FAKE.openai}`), 2],
     ["private key block", write(FAKE.pem), 2],
+    ["AWS temporary key (ASIA)", write(`k="${FAKE.awsTemp}"`), 2],
+    ["GitHub fine-grained PAT", write(`t=${FAKE.githubPat}`), 2],
+    ["Slack refresh token (xoxe)", write(`SLACK_REFRESH=${FAKE.slackRefresh}`), 2],
+    ["Google key ending in dash", write(`k="${FAKE.googleDash}";`), 2],
+    ["OpenAI legacy key", write(`OPENAI_API_KEY="${FAKE.openaiLegacy}"`), 2],
+    ["PGP private key block", write(FAKE.pgp), 2],
     // allow
     ["clean code", write("const x = 1;\nmodule.exports = x;"), 0],
     ["prose mentioning the word secret", write("Keep your secret keys in a vault."), 0],
@@ -70,6 +82,9 @@ const CASES = {
     [".aws/credentials", write("id", ".aws/credentials"), 2],
     [".git-credentials", write("url", ".git-credentials"), 2],
     ["Windows path to .env", write("X=1", "C:\\proj\\.env"), 2],
+    ["uppercase ID_RSA", write("key", "ID_RSA"), 2],
+    ["uppercase .NPMRC", write("token", ".NPMRC"), 2],
+    ["uppercase .AWS/CREDENTIALS", write("id", ".AWS/CREDENTIALS"), 2],
     // allow
     [".env.example", write("X=", ".env.example"), 0],
     [".env.sample", write("X=", ".env.sample"), 0],
