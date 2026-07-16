@@ -53,6 +53,8 @@ Hooks run automatically in response to Claude Code events:
 |------|-------|-------------|
 | `auto-format` | After Write/Edit | Runs ruff (Python) or eslint (JS/TS) on changed files |
 | `block-dangerous-commands` | Before Bash | Blocks `rm -rf /`, force push to main, `DROP TABLE`, etc. |
+| `detect-secrets` | Before Write/Edit | Blocks writes containing secret-looking content (API keys, tokens, private key blocks) |
+| `guard-sensitive-files` | Before Write/Edit | Blocks edits to `.env` files, key material (`.pem`/`.key`/`id_rsa`), and credential dotfiles |
 | `notify` | Notification | Cross-platform desktop notifications |
 
 Hooks are installed to `.claude/hooks/` with config in `settings.local.json` (gitignored).

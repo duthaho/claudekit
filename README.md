@@ -69,7 +69,7 @@ Each agent has a single dispatcher and a clear job. No agent-bloat.
 | Category | What | Location |
 |---|---|---|
 | **Rules** | API, frontend, migrations, security, testing | `.claude/rules/` |
-| **Hooks** | auto-format, block-dangerous-commands, notifications | `.claude/hooks/` + `settings.local.json` |
+| **Hooks** | auto-format, block-dangerous-commands, detect-secrets, guard-sensitive-files, notifications | `.claude/hooks/` + `settings.local.json` |
 | **MCP Servers** | Context7, Sequential, Playwright, Memory, Filesystem | `.mcp.json` |
 
 Output styles ship with the plugin (in `output-styles/`) and are auto-discovered by Claude Code; no init step needed.

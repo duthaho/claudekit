@@ -19,7 +19,7 @@ Output styles ship with the plugin and are auto-discovered by Claude Code (no in
 | Category | Files | Location |
 |----------|-------|----------|
 | Rules | api.md, frontend.md, migrations.md, security.md, testing.md | `.claude/rules/` |
-| Hooks | auto-format, block-dangerous-commands, notify | `.claude/hooks/` + `settings.local.json` |
+| Hooks | auto-format, block-dangerous-commands, detect-secrets, guard-sensitive-files, notify | `.claude/hooks/` + `settings.local.json` |
 | MCP Servers | context7, sequential, playwright, memory, filesystem | `.mcp.json` |
 
 ---
@@ -49,9 +49,11 @@ For each selected rule, read the template from `${CLAUDE_PLUGIN_ROOT}/skills/ini
 "Which hooks do you want to install?"
 - a) Auto-format (runs linter after Write/Edit)
 - b) Block dangerous commands (prevents rm -rf /, force push main, etc.)
-- c) Notifications (desktop notifications on completion)
-- d) All of the above
-- e) Skip hooks
+- c) Detect secrets (blocks writes containing API keys, tokens, private key blocks)
+- d) Guard sensitive files (blocks edits to .env files, key material, credential dotfiles)
+- e) Notifications (desktop notifications on completion)
+- f) All of the above
+- g) Skip hooks
 
 For each selected hook:
 
@@ -106,7 +108,7 @@ Print a summary table of everything installed:
 Claudekit setup complete!
 
   Rules:   5 installed → .claude/rules/
-  Hooks:   3 installed → .claude/hooks/ + settings.local.json
+  Hooks:   5 installed → .claude/hooks/ + settings.local.json
   MCP:     5 configured → .mcp.json
 
 Next steps:
@@ -122,7 +124,7 @@ Next steps:
 
 If `$ARGUMENTS` contains `--all`, skip all prompts and install everything:
 - All 5 rules
-- All 3 hooks
+- All 5 hooks
 - All 5 MCP servers
 
 ---

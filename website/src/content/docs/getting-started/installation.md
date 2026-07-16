@@ -42,7 +42,7 @@ The wizard interactively installs:
 |----------|------|----------|
 | **Rules** | API, frontend, migrations, security, testing | `.claude/rules/` |
 | **Modes** | brainstorm, deep-research, default, implementation, orchestration, review, token-efficient | `.claude/modes/` |
-| **Hooks** | auto-format, block-dangerous-commands, notifications | `.claude/hooks/` + `settings.local.json` |
+| **Hooks** | auto-format, block-dangerous-commands, detect-secrets, guard-sensitive-files, notifications | `.claude/hooks/` + `settings.local.json` |
 | **MCP Servers** | Context7, Sequential, Playwright, Memory, Filesystem | `.mcp.json` |
 
 Or install everything at once:
