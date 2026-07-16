@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `detect-secrets` hook — blocks Write/Edit content containing secret-looking
+  material (AWS/GitHub/Slack/Google/Stripe/npm/Anthropic/OpenAI key shapes,
+  private-key blocks); precision-first patterns, fail-open (#3)
+- `guard-sensitive-files` hook — blocks Write/Edit on `.env` files (templates
+  excluded), key material, and credential dotfiles; case-insensitive,
+  Windows-path aware (#3)
+- Both new hooks installable via `/claudekit:init` (now 5 hooks) (#3)
+- `scripts/test-hooks.cjs` — zero-dependency fixture runner for the PreToolUse
+  hooks (46 cases) (#3)
+- `scripts/validate-plugin.cjs` — lints every skill against the 8-section
+  anatomy and checks plugin/marketplace version sync; runs in CI (#1)
+- `scripts/token-report.cjs` — token-footprint report for always-loaded
+  skill/agent frontmatter with named budgets, enforced in CI via `--check` (#2)
+- CI workflow `.github/workflows/validate.yml` running the anatomy and
+  token-budget checks on pushes to `main` and PRs (#1, #2)
+
 ## [4.0.0] - 2026-05-07
 
 ### Verification-first engineering toolkit
