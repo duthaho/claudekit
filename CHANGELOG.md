@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Effort-scaled discipline across the design-phase spine — a named
+  Trivial/Small/Standard tier model so ceremony scales to the change while the
+  evidence gate never does. README gains a canonical "Sizing the work" table and
+  the non-negotiable rule (`verification-gate` and `code-review-loop` always run,
+  any tier); `shape-spec` gains a `Step 0: Size the change` routing gate;
+  `write-plan` and `plan-review` declare which tier they belong to; each of the
+  three carries a new rationalization against skipping the gate under the "it's
+  trivial" excuse
+
 ### Added
 
 - `detect-secrets` hook — blocks Write/Edit content containing secret-looking
