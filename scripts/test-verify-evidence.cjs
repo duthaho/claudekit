@@ -120,6 +120,8 @@ function diffRename(fromPath, toPath) {
   );
 }
 
+const diffConcat = (...parts) => parts.join("");
+
 // ============ CITATION CASES ============
 console.log("\nverify-evidence.cjs --citations");
 {
@@ -177,6 +179,22 @@ console.log("\nverify-evidence.cjs --citations");
   );
 
   check(
+    "decimal-colon prose (3.5:2) is not a citation",
+    runGate(["--citations", "artifact.md"], {
+      cwd: citationDir("Throughput rose 3.5:2 over baseline, and 18.04:30 held.", real),
+    }),
+    0
+  );
+
+  check(
+    "last-line+1 on a newline-terminated file is out of range",
+    runGate(["--citations", "artifact.md"], {
+      cwd: citationDir("See real.js:2 for the change.", ["only one line"]),
+    }),
+    1
+  );
+
+  check(
     "no citations at all",
     runGate(["--citations", "artifact.md"], {
       cwd: citationDir("Just prose, nothing to resolve.", real),
@@ -224,8 +242,37 @@ console.log("\nverify-evidence.cjs --tripwires");
     1
   );
   check(
-    "renamed test file is not a deletion",
+    "test renamed to another test path is fine",
     runGate(["--tripwires"], { diffFile: diffFileWith(diffRename("tests/test_old.py", "tests/test_new.py")) }),
+    0
+  );
+  check(
+    "test renamed OUT of the suite is a violation",
+    runGate(["--tripwires"], { diffFile: diffFileWith(diffRename("tests/test_app.py", "src/app.py")) }),
+    1
+  );
+  check(
+    "added bare @skip decorator",
+    runGate(["--tripwires"], { diffFile: diffFileWith(diffAdd("tests/test_app.py", ["@skip"])) }),
+    1
+  );
+  check(
+    "multi-file diff: clean file then skip in a later file, attributed correctly",
+    runGate(["--tripwires"], {
+      diffFile: diffFileWith(
+        diffConcat(
+          diffAdd("src/util.js", ["const y = 2;"]),
+          diffAdd("src/util.test.js", ["it.skip('later', () => {});"])
+        )
+      ),
+    }),
+    1
+  );
+  check(
+    "multi-file diff: deleted non-test then clean adds does not false-flag",
+    runGate(["--tripwires"], {
+      diffFile: diffFileWith(diffConcat(diffDelete("src/legacy.js"), diffAdd("src/new.js", ["const z = 3;"]))),
+    }),
     0
   );
   check(

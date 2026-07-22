@@ -49,7 +49,9 @@ function findCitations(text) {
   CITATION_RE.lastIndex = 0;
   while ((m = CITATION_RE.exec(stripped)) !== null) {
     const p = m[1];
-    if (!p.includes("/") && !p.includes(".")) continue; // not a path-like token
+    // Path-like only: contains a "/" or a letter-led extension (".js", ".py").
+    // A dotted number like "3.5" (in prose "ratio 3.5:2") is NOT a path.
+    if (!p.includes("/") && !/\.[A-Za-z]/.test(p)) continue;
     out.push({
       raw: m[0],
       filePath: p,
@@ -60,6 +62,23 @@ function findCitations(text) {
   return out;
 }
 
+// Repo root so citations resolve the same way regardless of the cwd the gate
+// is run from; falls back to cwd when not in a git work tree (e.g. tests).
+function repoRoot() {
+  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+    timeout: 10000,
+  });
+  if (!r.error && r.status === 0 && r.stdout.trim()) {
+    try {
+      return fs.realpathSync(r.stdout.trim());
+    } catch {
+      /* fall through */
+    }
+  }
+  return fs.realpathSync(process.cwd());
+}
+
 function checkCitations(artifactArg) {
   const violations = [];
   let artifactText;
@@ -68,7 +87,7 @@ function checkCitations(artifactArg) {
   } catch {
     return { usageError: `cannot read artifact: ${artifactArg}` };
   }
-  const base = fs.realpathSync(process.cwd());
+  const base = repoRoot();
   const citations = findCitations(artifactText);
 
   for (const c of citations) {
@@ -103,7 +122,9 @@ function checkCitations(artifactArg) {
       violations.push(`${c.raw} — citation does not point at a file`);
       continue;
     }
-    const lineCount = fs.readFileSync(realFull, "utf8").split("\n").length;
+    const body = fs.readFileSync(realFull, "utf8");
+    // Count real lines: a single trailing newline is a terminator, not a line.
+    const lineCount = body === "" ? 0 : body.replace(/\n$/, "").split("\n").length;
     if (c.start < 1 || c.end < c.start || c.end > lineCount) {
       violations.push(
         `${c.raw} — line out of range (file has ${lineCount} lines)`
@@ -121,15 +142,19 @@ function isTestFile(p) {
     /(^|\/)__tests__\//.test(f) ||
     /\.(test|spec)\.[a-z0-9]+$/.test(f) ||
     /(^|\/)test_[^/]*\.py$/.test(f) ||
-    /_test\.py$/.test(f)
+    /_test\.py$/.test(f) ||
+    // "test"/"spec" as a separator-bounded token in the basename — catches
+    // e.g. app.test.js, foo_spec.rb, but not latest.js / inspector.js.
+    /(^|[\/._-])(test|spec)([\/._-]|$)/.test(f)
   );
 }
 
 const SKIP_PATTERNS = [
   { name: "skipped test (.skip)", re: /\.skip\s*\(/ },
   { name: "skipped test (xit/xdescribe/xtest)", re: /\bx(it|describe|test)\s*\(/ },
-  { name: "skipped test (@pytest.mark.skip)", re: /@pytest\.mark\.skip/ },
-  { name: "skipped test (@unittest.skip)", re: /@unittest\.skip/ },
+  // Matches @skip, @pytest.mark.skip, @pytest.mark.skipif, @unittest.skip,
+  // @unittest.skipUnless, @unittest.skipIf.
+  { name: "skipped test (@skip decorator)", re: /@(?:pytest\.mark\.|unittest\.)?skip/ },
 ];
 const MARKER_RE = /\b(TODO|FIXME)\b/;
 
@@ -159,11 +184,34 @@ function checkTripwires() {
   let bPath = null;
   let curFile = null;
   let newLineNo = 0;
+  let renameFrom = null;
 
   const stripPrefix = (s) =>
     s === "/dev/null" ? "/dev/null" : s.replace(/^[ab]\//, "");
 
   for (const line of lines) {
+    // A new file section resets all per-file state, so location and deletion
+    // attribution never leak across files in a multi-file diff.
+    if (line.startsWith("diff --git ")) {
+      aPath = null;
+      bPath = null;
+      curFile = null;
+      newLineNo = 0;
+      renameFrom = null;
+      continue;
+    }
+    if (line.startsWith("rename from ")) {
+      renameFrom = line.slice("rename from ".length).trim();
+      continue;
+    }
+    if (line.startsWith("rename to ")) {
+      const renameTo = line.slice("rename to ".length).trim();
+      // Renaming a test file to a non-test path removes it from the suite.
+      if (renameFrom && isTestFile(renameFrom) && !isTestFile(renameTo)) {
+        violations.push(`test file renamed out of the suite: ${renameFrom} → ${renameTo}`);
+      }
+      continue;
+    }
     if (line.startsWith("--- ")) {
       aPath = stripPrefix(line.slice(4).trim());
       continue;
@@ -182,7 +230,7 @@ function checkTripwires() {
       newLineNo = parseInt(hunk[1], 10);
       continue;
     }
-    if (line.startsWith("+++")) continue;
+    // Added content line (not the "+++ " file header, handled above).
     if (line.startsWith("+")) {
       const content = line.slice(1);
       const loc = curFile ? `${curFile}:${newLineNo}` : "(unknown)";
