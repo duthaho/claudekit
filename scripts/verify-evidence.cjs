@@ -10,8 +10,14 @@
  *   --tripwires                Scan `git diff HEAD` for fake-green tampering:
  *                              deleted test files, newly skipped tests, and new
  *                              TODO/FIXME left in changed code.
+ *   --rerun <artifact.md>      Re-run the test suite and diff the ACTUAL result
+ *                              against the result CLAIMED in the artifact; fail
+ *                              if a claimed pass is actually red, or the counts
+ *                              diverge. Command auto-detected, or --cmd "<c>".
+ *   --detect-only              Print the auto-detected test command (exit 2 if
+ *                              none); does not run anything.
  *
- * With no mode flag, runs --tripwires (citations need an artifact argument).
+ * With no mode flag, runs --tripwires (citations/rerun need an artifact argument).
  *
  * This is a GATE, not a convenience hook: it fails loud.
  *   exit 0 = clean   exit 1 = violations found   exit 2 = usage / internal error
@@ -23,7 +29,7 @@
  * deliberately does NOT attempt deep test-tamper analysis (assertion-count
  * deltas, mutation proofs); that is out of scope for this slice.
  *
- * Zero dependencies. Usage: node scripts/verify-evidence.cjs [--citations <f>] [--tripwires]
+ * Zero dependencies. Usage: node scripts/verify-evidence.cjs [--citations <f>] [--tripwires] [--rerun <f> [--cmd "<c>"]] [--detect-only]
  */
 "use strict";
 
@@ -32,7 +38,8 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const USAGE =
-  "Usage: node scripts/verify-evidence.cjs [--citations <artifact.md>] [--tripwires]";
+  'Usage: node scripts/verify-evidence.cjs [--citations <artifact.md>] ' +
+  '[--tripwires] [--rerun <artifact.md> [--cmd "<command>"]] [--detect-only]';
 
 // ---------------------------------------------------------------- citations
 // A citation is `path:line` or `path:start-end`, backtick-optional. To avoid
@@ -252,6 +259,176 @@ function checkTripwires() {
   return { violations };
 }
 
+// ---------------------------------------------------------------- rerun
+// Last integer captured by a global regex (or null). Word-boundaried so
+// "42 passedness" does not match "42 passed".
+function lastCount(re, t) {
+  let m;
+  let val = null;
+  while ((m = re.exec(t)) !== null) val = parseInt(m[1], 10);
+  return val;
+}
+
+// Parse a claimed/actual test summary: {passed, failed, verdict}. passed/failed
+// are null when not stated; verdict is "pass" | "fail" | null. Counts are read
+// order-independently ("3 failed, 39 passed" and "39 passed, 3 failed" both
+// yield passed:39 failed:3) so a claimed failure is never lost.
+function parseTestSummary(text) {
+  const t = String(text);
+  let passed = null;
+  let failed = null;
+
+  // mocha uses "passing"/"failing"; jest/vitest/pytest/generic use
+  // "passed"/"failed". They never collide, so we scan for each independently
+  // (last occurrence wins) — order-independent, and the real final summary line
+  // wins over any earlier per-file or sample numbers.
+  passed = lastCount(/\b(\d+)\s+passing\b/gi, t);
+  failed = lastCount(/\b(\d+)\s+failing\b/gi, t);
+  if (passed == null) passed = lastCount(/\b(\d+)\s+passed\b/gi, t);
+  if (failed == null) failed = lastCount(/\b(\d+)\s+failed\b/gi, t);
+
+  let verdict = null;
+  if (failed != null && failed > 0) verdict = "fail";
+  else if (failed === 0 || passed != null) verdict = "pass";
+  else if (/\b(all tests? pass|tests? pass|suite green|all green)\b/i.test(t)) {
+    verdict = "pass";
+  }
+  return { passed, failed, verdict };
+}
+
+// Detect the repo's test command. Returns {argv, label} or null. Precision-
+// first: only a package.json test script or an explicit pytest config marker.
+function detectTestCommand(cwd) {
+  try {
+    const pkgPath = path.join(cwd, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      if (pkg && pkg.scripts && typeof pkg.scripts.test === "string") {
+        return { argv: ["npm", "test"], label: "npm test" };
+      }
+    }
+  } catch {
+    /* unreadable package.json → fall through */
+  }
+  const hasPytest =
+    fs.existsSync(path.join(cwd, "pytest.ini")) ||
+    /\[tool:pytest\]|\[pytest\]/.test(safeRead(path.join(cwd, "tox.ini"))) ||
+    /\[tool:pytest\]|\[pytest\]/.test(safeRead(path.join(cwd, "setup.cfg"))) ||
+    /\[tool\.pytest/.test(safeRead(path.join(cwd, "pyproject.toml")));
+  if (hasPytest) return { argv: ["pytest"], label: "pytest" };
+  return null;
+}
+
+function safeRead(p) {
+  try {
+    return fs.readFileSync(p, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+// Run the resolved command. Returns {code, output, label} or {enoent:true}.
+// A timeout or signal termination is reported as a non-zero "timed out" result.
+function runTests(resolved) {
+  const opts = { encoding: "utf8", timeout: 120000, maxBuffer: 10 * 1024 * 1024 };
+  let r;
+  if (resolved.shellCmd) {
+    r = spawnSync(resolved.shellCmd, { ...opts, shell: true });
+  } else {
+    r = spawnSync(resolved.argv[0], resolved.argv.slice(1), opts);
+  }
+  const output = `${r.stdout || ""}\n${r.stderr || ""}`;
+  // A timeout or a signal termination is a non-zero "terminated" run (A2).
+  if ((r.error && r.error.code === "ETIMEDOUT") || r.signal) {
+    const why = r.signal ? `terminated: ${r.signal}` : "timed out";
+    return { code: 124, output: `${output}\n[${why}]`, timedOut: true };
+  }
+  // Any other spawn error (ENOENT, EACCES, …) means the command could not run →
+  // can't-verify, not a violation (the caller maps this to exit 2).
+  if (r.error) return { cannotRun: r.error.code || r.error.message };
+  // Shell "command not found" (127) / "not executable" (126) are also can't-run,
+  // not a test failure — a missing --cmd binary must not read as a red suite.
+  if (r.status === 127) return { cannotRun: "command not found (127)" };
+  if (r.status === 126) return { cannotRun: "command not executable (126)" };
+  return { code: r.status == null ? 1 : r.status, output };
+}
+
+function checkRerun(artifactArg, cmdOverride) {
+  let artifactText;
+  try {
+    artifactText = fs.readFileSync(artifactArg, "utf8");
+  } catch {
+    return { usageError: `cannot read artifact: ${artifactArg}` };
+  }
+  const claim = parseTestSummary(artifactText);
+  if (!claim.verdict) return { noClaim: true };
+
+  // Resolve the command: explicit override (shell) or auto-detect (argv).
+  let resolved;
+  let label;
+  if (cmdOverride) {
+    resolved = { shellCmd: cmdOverride };
+    label = cmdOverride;
+  } else {
+    const det = detectTestCommand(process.cwd());
+    if (!det) {
+      return {
+        usageError:
+          "no test command: none detected (need package.json test script or " +
+          "pytest config) — pass --cmd \"<command>\"",
+      };
+    }
+    resolved = { argv: det.argv };
+    label = det.label;
+  }
+
+  // Print the command BEFORE running it (D2): if the run hangs or is killed,
+  // the user still sees what was executed.
+  console.log(`rerun: running \`${label}\` …`);
+  const run = runTests(resolved);
+  if (run.cannotRun) {
+    return { usageError: `could not run test command \`${label}\` (${run.cannotRun})` };
+  }
+  const actual = parseTestSummary(run.output);
+  const actualPass = run.code === 0;
+
+  const violations = [];
+  const claimStr = `${claim.passed != null ? claim.passed + " passed" : "pass"}${
+    claim.failed != null ? ", " + claim.failed + " failed" : ""
+  }`;
+  if (claim.verdict === "pass" && !actualPass) {
+    violations.push(
+      `artifact claims ${claimStr}, but the suite ${
+        run.timedOut ? "timed out" : `failed (exit ${run.code})`
+      }`
+    );
+  } else if (claim.verdict === "fail" && actualPass) {
+    violations.push(
+      `artifact claims ${claimStr}, but the suite passed (exit 0)`
+    );
+  }
+  // Count divergence, when both sides are parseable.
+  if (
+    claim.passed != null &&
+    actual.passed != null &&
+    claim.passed !== actual.passed
+  ) {
+    violations.push(
+      `claimed ${claim.passed} passed, actual run reported ${actual.passed} passed`
+    );
+  }
+  if (
+    claim.failed != null &&
+    actual.failed != null &&
+    claim.failed !== actual.failed
+  ) {
+    violations.push(
+      `claimed ${claim.failed} failed, actual run reported ${actual.failed} failed`
+    );
+  }
+  return { violations, label, actual, actualPass };
+}
+
 // ---------------------------------------------------------------- main
 function main() {
   const argv = process.argv.slice(2);
@@ -261,21 +438,60 @@ function main() {
   }
 
   let artifact = null;
+  let rerunArtifact = null;
+  let cmdOverride = null;
+  let cmdSeen = false;
   let doCitations = false;
   let doTripwires = false;
+  let doRerun = false;
+  let doDetectOnly = false;
+  const takesValue = (v) => v && !v.startsWith("-");
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--citations") {
       doCitations = true;
-      artifact = argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[++i] : null;
+      artifact = takesValue(argv[i + 1]) ? argv[++i] : null;
     } else if (argv[i] === "--tripwires") {
       doTripwires = true;
+    } else if (argv[i] === "--rerun") {
+      doRerun = true;
+      rerunArtifact = takesValue(argv[i + 1]) ? argv[++i] : null;
+    } else if (argv[i] === "--cmd") {
+      cmdSeen = true;
+      cmdOverride = takesValue(argv[i + 1]) ? argv[++i] : null;
+    } else if (argv[i] === "--detect-only") {
+      doDetectOnly = true;
     } else {
       console.error(`Unknown argument: ${argv[i]}\n${USAGE}`);
       return 2;
     }
   }
-  // Default: no mode flag → tripwires (citations require an artifact arg).
-  if (!doCitations && !doTripwires) doTripwires = true;
+
+  // Validate --cmd before any mode runs: it needs a value and only pairs with
+  // --rerun (checked here so --detect-only --cmd is also rejected).
+  if (cmdSeen && cmdOverride == null) {
+    console.error(`--cmd requires a command string\n${USAGE}`);
+    return 2;
+  }
+  if (cmdSeen && !doRerun) {
+    console.error(`--cmd is only valid with --rerun\n${USAGE}`);
+    return 2;
+  }
+
+  // --detect-only: print the detected command (or exit 2 if none). No execution.
+  if (doDetectOnly) {
+    const det = detectTestCommand(process.cwd());
+    if (!det) {
+      console.error(
+        "detect-only: no test command detected (need a package.json test " +
+          'script or pytest config). Pass --cmd "<command>" to override.'
+      );
+      return 2;
+    }
+    console.log(`detected test command: ${det.label}`);
+    return 0;
+  }
+  // Default: no mode flag → tripwires (citations/rerun require an artifact arg).
+  if (!doCitations && !doTripwires && !doRerun) doTripwires = true;
 
   const findings = [];
   let anyViolation = false;
@@ -311,6 +527,30 @@ function main() {
       for (const v of res.violations) findings.push(`  ✗ ${v}`);
     } else {
       findings.push(`tripwires: none`);
+    }
+  }
+
+  if (doRerun) {
+    if (!rerunArtifact) {
+      console.error(`--rerun requires an artifact path\n${USAGE}`);
+      return 2;
+    }
+    const res = checkRerun(rerunArtifact, cmdOverride);
+    if (res.usageError) {
+      console.error(res.usageError);
+      return 2;
+    }
+    if (res.noClaim) {
+      findings.push("rerun: no test claim found in artifact — nothing to verify");
+    } else {
+      findings.push(`rerun: ran \`${res.label}\` → ${res.actualPass ? "passed" : "failed"}`);
+      if (res.violations.length) {
+        anyViolation = true;
+        findings.push(`rerun: ${res.violations.length} claim mismatch(es)`);
+        for (const v of res.violations) findings.push(`  ✗ ${v}`);
+      } else {
+        findings.push(`rerun: claim matches the actual run`);
+      }
     }
   }
 

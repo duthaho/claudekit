@@ -32,8 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not attempt deep test-tamper analysis
 - `scripts/verify-evidence-hook.cjs` — fail-open Stop/PostToolUse wrapper that
   surfaces tripwire findings as advisory, never blocking
+- `scripts/verify-evidence.cjs --rerun <artifact>` — re-runs the test suite and
+  diffs the actual result against the result claimed in an evidence artifact
+  (claimed pass but red, or divergent pass/fail counts, fails); verdict is
+  ground-truthed from the run's exit code. Command auto-detected (`npm test` /
+  `pytest`) or via `--cmd`; `--detect-only` prints the detected command. Not
+  wired into the fail-open hook (too heavy per turn)
 - `scripts/test-verify-evidence.cjs` — zero-dependency fixture runner for the
-  evidence gate (26 cases), added to CI
+  evidence gate (49 cases), run in CI
 
 ## [4.0.0] - 2026-05-07
 

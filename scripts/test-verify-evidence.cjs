@@ -122,6 +122,39 @@ function diffRename(fromPath, toPath) {
 
 const diffConcat = (...parts) => parts.join("");
 
+// ---- rerun helpers ----
+// A fake test runner: a node script that prints a summary line and exits with a
+// chosen code, so claim-vs-actual comparison is fully hermetic.
+function fakeRunner(summaryLine, code) {
+  const dir = mkTmp();
+  const f = path.join(dir, "runner.cjs");
+  fs.writeFileSync(
+    f,
+    `process.stdout.write(${JSON.stringify(summaryLine + "\n")});\n` +
+      `process.exit(${code});\n`
+  );
+  return `${JSON.stringify(process.execPath)} ${JSON.stringify(f)}`;
+}
+function claimArtifact(body) {
+  const dir = mkTmp();
+  const f = path.join(dir, "claim.md");
+  fs.writeFileSync(f, body);
+  return f;
+}
+function npmProjectDir(testScript) {
+  const dir = mkTmp();
+  fs.writeFileSync(
+    path.join(dir, "package.json"),
+    JSON.stringify({ name: "x", scripts: { test: testScript } })
+  );
+  return dir;
+}
+function pytestDir() {
+  const dir = mkTmp();
+  fs.writeFileSync(path.join(dir, "pytest.ini"), "[pytest]\n");
+  return dir;
+}
+
 // ============ CITATION CASES ============
 console.log("\nverify-evidence.cjs --citations");
 {
@@ -329,6 +362,159 @@ console.log("\nverify-evidence-hook.cjs (always exit 0)");
   );
   check("malformed stdin -> exit 0", runHook("{not json", {}), 0);
   check("empty stdin -> exit 0", runHook("", {}), 0);
+}
+
+// ============ RERUN CASES ============
+console.log("\nverify-evidence.cjs --rerun");
+{
+  // AC1 — claim matches a passing run with matching counts.
+  check(
+    "claim pass + counts match a passing run",
+    runGate(["--rerun", claimArtifact("Verified: 42 passed, 0 failed."), "--cmd", fakeRunner("42 passed, 0 failed", 0)]),
+    0
+  );
+  // AC2 — claimed pass but the run fails (non-zero exit).
+  check(
+    "claimed pass but suite fails (exit 1)",
+    runGate(["--rerun", claimArtifact("All tests pass."), "--cmd", fakeRunner("1 failed, 41 passed", 1)]),
+    1
+  );
+  // AC3 — claimed count differs from actual passed count.
+  check(
+    "claimed 42 passed but actual reports 12",
+    runGate(["--rerun", claimArtifact("Verified: 42 passed, 0 failed."), "--cmd", fakeRunner("12 passed, 0 failed", 0)]),
+    1
+  );
+  // AC4 — no parseable claim in the artifact.
+  check(
+    "artifact has no test claim -> nothing to verify",
+    runGate(["--rerun", claimArtifact("Refactored the parser; see notes."), "--cmd", fakeRunner("5 passed, 0 failed", 0)]),
+    0
+  );
+  // AC5 — no --cmd and no detectable command -> cannot verify (exit 2).
+  check(
+    "no --cmd and no detectable command -> exit 2",
+    runGate(["--rerun", claimArtifact("42 passed, 0 failed.")], { cwd: mkTmp() }),
+    2
+  );
+  // A7 — claimed FAIL but the suite actually passes -> mismatch.
+  check(
+    "claimed failures but suite passes -> violation",
+    runGate(["--rerun", claimArtifact("Result: 3 failed, 39 passed."), "--cmd", fakeRunner("42 passed, 0 failed", 0)]),
+    1
+  );
+  // G1 — "N failed, M passed" order: claimed FAIL detected even when counts
+  // would otherwise agree (the failed count is not dropped).
+  check(
+    "claimed '3 failed, 39 passed' vs actual '39 passed' -> violation via verdict",
+    runGate(["--rerun", claimArtifact("Summary: 3 failed, 39 passed."), "--cmd", fakeRunner("39 passed, 0 failed", 0)]),
+    1
+  );
+  // G1 — jest 'Tests:' line, failed-before-passed order parses both counts.
+  check(
+    "jest 'Tests: 2 failed, 40 passed' claim vs matching run -> violation (claimed fail)",
+    runGate(["--rerun", claimArtifact("Tests: 2 failed, 40 passed"), "--cmd", fakeRunner("Tests: 2 failed, 40 passed", 1)]),
+    0
+  );
+  // G3 — "42 passedness" is not a passed count -> no claim.
+  check(
+    "'passedness' is not a test claim",
+    runGate(["--rerun", claimArtifact("The 42 passedness metric improved."), "--cmd", fakeRunner("7 passed, 0 failed", 0)]),
+    0
+  );
+  // A2 — timeout / non-zero labelled "timed out" is treated as a failed run.
+  check(
+    "claimed pass but runner exits non-zero with no counts -> violation",
+    runGate(["--rerun", claimArtifact("Suite green."), "--cmd", fakeRunner("boom", 2)]),
+    1
+  );
+  // A3/R2 — framework summary parsed, prose does not false-match generic.
+  check(
+    "jest-style actual summary compared to jest-style claim",
+    runGate(["--rerun", claimArtifact("Tests: 0 failed, 42 passed"), "--cmd", fakeRunner("Tests: 0 failed, 42 passed", 0)]),
+    0
+  );
+  check(
+    "prose 'passed the review' is not a test claim",
+    runGate(["--rerun", claimArtifact("The change passed the review with flying colors."), "--cmd", fakeRunner("7 passed, 0 failed", 0)]),
+    0
+  );
+}
+
+// ============ DETECT-ONLY CASES ============
+console.log("\nverify-evidence.cjs --detect-only");
+{
+  check(
+    "npm project (scripts.test) -> detects, exit 0",
+    runGate(["--detect-only"], { cwd: npmProjectDir("jest") }),
+    0
+  );
+  check(
+    "pytest.ini marker -> detects, exit 0",
+    runGate(["--detect-only"], { cwd: pytestDir() }),
+    0
+  );
+  check(
+    "bare dir (no markers) -> none detected, exit 2",
+    runGate(["--detect-only"], { cwd: mkTmp() }),
+    2
+  );
+}
+
+// ============ RERUN CLI VALIDATION (R6) ============
+console.log("\nverify-evidence.cjs --rerun CLI validation");
+{
+  check(
+    "--cmd without --rerun -> exit 2",
+    runGate(["--cmd", "echo hi"]),
+    2
+  );
+  check(
+    "--rerun with no artifact value -> exit 2",
+    runGate(["--rerun"]),
+    2
+  );
+  check(
+    "--rerun with unreadable artifact -> exit 2",
+    runGate(["--rerun", "/no/such/artifact.md", "--cmd", fakeRunner("1 passed, 0 failed", 0)]),
+    2
+  );
+  // G5 — a command that cannot be run (ENOENT) is exit 2, not a violation.
+  check(
+    "--cmd naming a missing binary -> exit 2 (cannot verify)",
+    runGate(["--rerun", claimArtifact("42 passed, 0 failed."), "--cmd", "definitely-not-a-real-binary-xyz-123"]),
+    2
+  );
+  // G8 — --cmd with no value is a usage error, not a silent auto-detect.
+  check(
+    "--cmd with no value -> exit 2",
+    runGate(["--rerun", claimArtifact("1 passed, 0 failed."), "--cmd"]),
+    2
+  );
+  // G9 — --detect-only --cmd is rejected (--cmd only pairs with --rerun).
+  check(
+    "--detect-only with --cmd -> exit 2",
+    runGate(["--detect-only", "--cmd", "npm test"], { cwd: npmProjectDir("jest") }),
+    2
+  );
+  // aggregation: a citation violation AND a rerun run together still exit 1.
+  {
+    const dir = citationDir("Broken at real.js:999.", ["a", "b"]);
+    check(
+      "citation violation + clean rerun aggregate -> exit 1",
+      runGate([
+        "--citations", path.join(dir, "artifact.md"),
+        "--rerun", claimArtifact("42 passed, 0 failed."),
+        "--cmd", fakeRunner("42 passed, 0 failed", 0),
+      ]),
+      1
+    );
+  }
+  check(
+    "no-flag default still runs tripwires only (unchanged)",
+    runGate([], { cwd: mkTmp(), diffFile: diffFileWith("") }),
+    0
+  );
 }
 
 // ---- cleanup ----

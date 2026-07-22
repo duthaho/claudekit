@@ -172,10 +172,20 @@ node scripts/test-verify-evidence.cjs
 ```
 
 `scripts/verify-evidence.cjs` is the evidence gate itself — dogfooding the
-"every claim has evidence" philosophy against the agent's own output. It
-resolves `file:line` citations in an artifact (`--citations <file>`) and scans
-`git diff HEAD` for fake-green tampering — deleted test files, added test skips,
-new TODO/FIXME (`--tripwires`) — exiting non-zero when a claim can't be verified.
+"every claim has evidence" philosophy against the agent's own output:
+
+- `--citations <file>` — resolves `file:line` citations in an artifact against
+  real paths and line ranges.
+- `--tripwires` — scans `git diff HEAD` for fake-green tampering: deleted test
+  files, added test skips, new TODO/FIXME.
+- `--rerun <file> [--cmd "<command>"]` — re-runs the test suite and diffs the
+  actual result against the result *claimed* in the artifact; a claimed pass
+  that's actually red, or divergent pass/fail counts, fails the gate. The
+  verdict is ground-truthed from the run's exit code, so a pasted output block
+  can't fake green. The command is auto-detected (`npm test` / `pytest`) or
+  given with `--cmd`; `--detect-only` prints what would run.
+
+It exits non-zero when a claim can't be verified.
 
 ## Requirements
 
