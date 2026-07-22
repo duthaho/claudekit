@@ -35,11 +35,17 @@ between `write-plan` and implementation.
 
 ## When NOT to Use
 
-- The plan is for a single-file, single-author change (use code review instead)
+- The change is **Trivial** or **Small** (see README "Sizing the work") — plan-review is a Standard-tier step; smaller changes go straight to implementation and `code-review-loop`
 - A previous plan-review already passed and the plan hasn't changed since
 - You don't have a written plan yet (use `write-plan` first)
 
 ## Process
+
+**Effort tier:** plan-review is a **Standard**-tier gate — it earns its cost when a
+plan carries real design decisions across multiple files. **Trivial** and **Small**
+changes skip it; their safety net is `verification-gate` plus `code-review-loop` on
+the diff, which never skip regardless of tier. Reviewing a one-task plan is the kind
+of ceremony that teaches people to route around the gates that matter.
 
 ### Step 1: Locate and read the plan
 

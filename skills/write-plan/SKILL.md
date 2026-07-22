@@ -35,11 +35,19 @@ before code or `plan-review`.
 
 ## When NOT to Use
 
-- The change is single-file and you'll finish it in 30 minutes
+- The change is **Trivial** (one-line / single-file / describable in one sentence) — skip planning, make the change, run `verification-gate`
 - A plan exists; you should be running `plan-review` against it, not rewriting it
-- You don't have a spec yet — go to `shape-spec` first
+- You don't have a spec yet and the change is **Standard** — go to `shape-spec` first
 
 ## Process
+
+**Effort tier:** planning is for **Small** and **Standard** changes. A **Small**
+change (≤ ~3 files, obvious design) needs only a lightweight inline plan — the
+task list and per-task acceptance check below, skipping the spec that fed it. A
+**Standard** change gets the full plan and then `plan-review`. **Trivial** changes
+skip this skill entirely. Either way `verification-gate` and `code-review-loop`
+still run — planning scales, the gate does not. (Full tier table: README "Sizing
+the work".)
 
 ### Step 1: Confirm the spec is sufficient
 

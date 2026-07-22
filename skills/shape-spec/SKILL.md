@@ -42,6 +42,31 @@ is written.
 
 ## Process
 
+### Step 0: Size the change
+
+**Goal:** Scale the ceremony to the change before spending it. A full spec on a
+one-line fix trains people to skip the whole discipline; no spec on a multi-module
+change is how the missing constraint ships.
+
+**Actions:**
+
+1. Classify the change (when unsure between two tiers, pick the smaller and say so
+   — the plan contract upgrades it later if the work grows):
+   - **Trivial** — one-line / single-file / describable in one sentence. **Stop
+     here — no spec.** Make the change, then go straight to `verification-gate`
+     and `code-review-loop`.
+   - **Small** — one focused change, ≤ ~3 files, design obvious. **Skip the spec**
+     and hand off to `write-plan` for a lightweight inline plan; `plan-review` is
+     optional at this tier.
+   - **Standard** — multi-file, multi-session, or real design decisions. Continue
+     to Step 1 and write the full spec.
+2. Whatever the tier, the evidence never scales to zero: `verification-gate` runs
+   and `code-review-loop` reviews any shipped diff. Ceremony is what scales, not
+   the gate. (Full tier table: README "Sizing the work".)
+
+**Output:** The chosen tier, stated out loud, and — for Trivial/Small — the handoff
+to the right next step instead of a spec.
+
 ### Step 1: One-line summary
 
 **Goal:** Force the spec into a single sentence before any further work.
