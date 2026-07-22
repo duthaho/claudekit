@@ -403,6 +403,25 @@ console.log("\nverify-evidence.cjs --rerun");
     runGate(["--rerun", claimArtifact("Result: 3 failed, 39 passed."), "--cmd", fakeRunner("42 passed, 0 failed", 0)]),
     1
   );
+  // G1 — "N failed, M passed" order: claimed FAIL detected even when counts
+  // would otherwise agree (the failed count is not dropped).
+  check(
+    "claimed '3 failed, 39 passed' vs actual '39 passed' -> violation via verdict",
+    runGate(["--rerun", claimArtifact("Summary: 3 failed, 39 passed."), "--cmd", fakeRunner("39 passed, 0 failed", 0)]),
+    1
+  );
+  // G1 — jest 'Tests:' line, failed-before-passed order parses both counts.
+  check(
+    "jest 'Tests: 2 failed, 40 passed' claim vs matching run -> violation (claimed fail)",
+    runGate(["--rerun", claimArtifact("Tests: 2 failed, 40 passed"), "--cmd", fakeRunner("Tests: 2 failed, 40 passed", 1)]),
+    0
+  );
+  // G3 — "42 passedness" is not a passed count -> no claim.
+  check(
+    "'passedness' is not a test claim",
+    runGate(["--rerun", claimArtifact("The 42 passedness metric improved."), "--cmd", fakeRunner("7 passed, 0 failed", 0)]),
+    0
+  );
   // A2 — timeout / non-zero labelled "timed out" is treated as a failed run.
   check(
     "claimed pass but runner exits non-zero with no counts -> violation",
@@ -458,6 +477,24 @@ console.log("\nverify-evidence.cjs --rerun CLI validation");
   check(
     "--rerun with unreadable artifact -> exit 2",
     runGate(["--rerun", "/no/such/artifact.md", "--cmd", fakeRunner("1 passed, 0 failed", 0)]),
+    2
+  );
+  // G5 — a command that cannot be run (ENOENT) is exit 2, not a violation.
+  check(
+    "--cmd naming a missing binary -> exit 2 (cannot verify)",
+    runGate(["--rerun", claimArtifact("42 passed, 0 failed."), "--cmd", "definitely-not-a-real-binary-xyz-123"]),
+    2
+  );
+  // G8 — --cmd with no value is a usage error, not a silent auto-detect.
+  check(
+    "--cmd with no value -> exit 2",
+    runGate(["--rerun", claimArtifact("1 passed, 0 failed."), "--cmd"]),
+    2
+  );
+  // G9 — --detect-only --cmd is rejected (--cmd only pairs with --rerun).
+  check(
+    "--detect-only with --cmd -> exit 2",
+    runGate(["--detect-only", "--cmd", "npm test"], { cwd: npmProjectDir("jest") }),
     2
   );
   // aggregation: a citation violation AND a rerun run together still exit 1.

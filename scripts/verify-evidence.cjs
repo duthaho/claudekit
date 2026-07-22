@@ -260,40 +260,32 @@ function checkTripwires() {
 }
 
 // ---------------------------------------------------------------- rerun
-// Parse a claimed/actual test summary: {passed, failed, verdict}. Framework
-// parsers run before the generic one so a framework line is never pre-empted.
-// passed/failed are null when not stated; verdict is "pass" | "fail" | null.
+// Last integer captured by a global regex (or null). Word-boundaried so
+// "42 passedness" does not match "42 passed".
+function lastCount(re, t) {
+  let m;
+  let val = null;
+  while ((m = re.exec(t)) !== null) val = parseInt(m[1], 10);
+  return val;
+}
+
+// Parse a claimed/actual test summary: {passed, failed, verdict}. passed/failed
+// are null when not stated; verdict is "pass" | "fail" | null. Counts are read
+// order-independently ("3 failed, 39 passed" and "39 passed, 3 failed" both
+// yield passed:39 failed:3) so a claimed failure is never lost.
 function parseTestSummary(text) {
   const t = String(text);
   let passed = null;
   let failed = null;
 
-  // Framework-specific, most precise first; last match on a line wins.
-  const COUNT_PARSERS = [
-    // jest / vitest:  "Tests: 1 failed, 41 passed, 42 total"
-    { re: /Tests:[^\n]*?(?:(\d+)\s+failed[^\n]*?)?(\d+)\s+passed/gi, p: 2, f: 1 },
-    // mocha:          "41 passing" / "1 failing"
-    { re: /(\d+)\s+passing\b/gi, p: 1, f: null },
-    // pytest summary: "=== 41 passed, 1 failed in 0.2s ==="
-    { re: /(\d+)\s+passed(?:,\s*(\d+)\s+failed)?/gi, p: 1, f: 2 },
-    // generic, digits adjacent to the keyword: "41 passed, 1 failed"
-    { re: /\b(\d+)\s+passed(?:\D+(\d+)\s+failed)?/gi, p: 1, f: 2 },
-  ];
-  for (const { re, p, f } of COUNT_PARSERS) {
-    let m;
-    let hit = false;
-    while ((m = re.exec(t)) !== null) {
-      if (m[p] != null) {
-        passed = parseInt(m[p], 10);
-        hit = true;
-      }
-      if (f != null && m[f] != null) failed = parseInt(m[f], 10);
-    }
-    if (hit) break;
-  }
-  // mocha "failing" is a separate line.
-  const failing = /(\d+)\s+failing\b/i.exec(t);
-  if (failing && failed == null) failed = parseInt(failing[1], 10);
+  // mocha uses "passing"/"failing"; jest/vitest/pytest/generic use
+  // "passed"/"failed". They never collide, so we scan for each independently
+  // (last occurrence wins) — order-independent, and the real final summary line
+  // wins over any earlier per-file or sample numbers.
+  passed = lastCount(/\b(\d+)\s+passing\b/gi, t);
+  failed = lastCount(/\b(\d+)\s+failing\b/gi, t);
+  if (passed == null) passed = lastCount(/\b(\d+)\s+passed\b/gi, t);
+  if (failed == null) failed = lastCount(/\b(\d+)\s+failed\b/gi, t);
 
   let verdict = null;
   if (failed != null && failed > 0) verdict = "fail";
@@ -345,12 +337,19 @@ function runTests(resolved) {
   } else {
     r = spawnSync(resolved.argv[0], resolved.argv.slice(1), opts);
   }
-  if (r.error && r.error.code === "ENOENT") return { enoent: true };
   const output = `${r.stdout || ""}\n${r.stderr || ""}`;
-  if (r.error && (r.error.code === "ETIMEDOUT" || r.signal)) {
-    return { code: 124, output: `${output}\n[timed out]`, timedOut: true };
+  // A timeout or a signal termination is a non-zero "terminated" run (A2).
+  if ((r.error && r.error.code === "ETIMEDOUT") || r.signal) {
+    const why = r.signal ? `terminated: ${r.signal}` : "timed out";
+    return { code: 124, output: `${output}\n[${why}]`, timedOut: true };
   }
-  if (r.signal) return { code: 128, output: `${output}\n[killed: ${r.signal}]` };
+  // Any other spawn error (ENOENT, EACCES, …) means the command could not run →
+  // can't-verify, not a violation (the caller maps this to exit 2).
+  if (r.error) return { cannotRun: r.error.code || r.error.message };
+  // Shell "command not found" (127) / "not executable" (126) are also can't-run,
+  // not a test failure — a missing --cmd binary must not read as a red suite.
+  if (r.status === 127) return { cannotRun: "command not found (127)" };
+  if (r.status === 126) return { cannotRun: "command not executable (126)" };
   return { code: r.status == null ? 1 : r.status, output };
 }
 
@@ -383,9 +382,12 @@ function checkRerun(artifactArg, cmdOverride) {
     label = det.label;
   }
 
+  // Print the command BEFORE running it (D2): if the run hangs or is killed,
+  // the user still sees what was executed.
+  console.log(`rerun: running \`${label}\` …`);
   const run = runTests(resolved);
-  if (run.enoent) {
-    return { usageError: `test command not found: ${label}` };
+  if (run.cannotRun) {
+    return { usageError: `could not run test command \`${label}\` (${run.cannotRun})` };
   }
   const actual = parseTestSummary(run.output);
   const actualPass = run.code === 0;
@@ -438,6 +440,7 @@ function main() {
   let artifact = null;
   let rerunArtifact = null;
   let cmdOverride = null;
+  let cmdSeen = false;
   let doCitations = false;
   let doTripwires = false;
   let doRerun = false;
@@ -453,6 +456,7 @@ function main() {
       doRerun = true;
       rerunArtifact = takesValue(argv[i + 1]) ? argv[++i] : null;
     } else if (argv[i] === "--cmd") {
+      cmdSeen = true;
       cmdOverride = takesValue(argv[i + 1]) ? argv[++i] : null;
     } else if (argv[i] === "--detect-only") {
       doDetectOnly = true;
@@ -460,6 +464,17 @@ function main() {
       console.error(`Unknown argument: ${argv[i]}\n${USAGE}`);
       return 2;
     }
+  }
+
+  // Validate --cmd before any mode runs: it needs a value and only pairs with
+  // --rerun (checked here so --detect-only --cmd is also rejected).
+  if (cmdSeen && cmdOverride == null) {
+    console.error(`--cmd requires a command string\n${USAGE}`);
+    return 2;
+  }
+  if (cmdSeen && !doRerun) {
+    console.error(`--cmd is only valid with --rerun\n${USAGE}`);
+    return 2;
   }
 
   // --detect-only: print the detected command (or exit 2 if none). No execution.
@@ -474,12 +489,6 @@ function main() {
     }
     console.log(`detected test command: ${det.label}`);
     return 0;
-  }
-
-  // --cmd is only meaningful alongside --rerun.
-  if (cmdOverride != null && !doRerun) {
-    console.error(`--cmd is only valid with --rerun\n${USAGE}`);
-    return 2;
   }
   // Default: no mode flag → tripwires (citations/rerun require an artifact arg).
   if (!doCitations && !doTripwires && !doRerun) doTripwires = true;
