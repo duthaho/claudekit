@@ -55,9 +55,8 @@ change is how the missing constraint ships.
    - **Trivial** — one-line / single-file / describable in one sentence. **Stop
      here — no spec.** Make the change, then go straight to `verification-gate`
      and `code-review-loop`.
-   - **Small** — one focused change, ≤ ~3 files, design obvious. **Skip the spec**
-     and hand off to `write-plan` for a lightweight inline plan; `plan-review` is
-     optional at this tier.
+   - **Small** — one focused change, ≤ ~3 files, design obvious. **Skip the spec
+     and plan-review**; hand off to `write-plan` for a lightweight inline plan.
    - **Standard** — multi-file, multi-session, or real design decisions. Continue
      to Step 1 and write the full spec.
 2. Whatever the tier, the evidence never scales to zero: `verification-gate` runs

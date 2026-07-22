@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the non-negotiable rule (`verification-gate` and `code-review-loop` always run,
   any tier); `shape-spec` gains a `Step 0: Size the change` routing gate;
   `write-plan` and `plan-review` declare which tier they belong to; each of the
-  three carries a new rationalization against skipping the gate under the "it's
-  trivial" excuse
+  three carries a new rationalization against misusing the tier model — skipping
+  the evidence gate under an "it's trivial" excuse, or over-applying full ceremony
+  to a one-liner
 
 ### Added
 
