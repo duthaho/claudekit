@@ -91,6 +91,18 @@ Every claudekit skill has 8 required sections:
 
 Pick the chain that matches your task. Each one ends at a real stopping point — not every project needs every step.
 
+### Sizing the work
+
+The chains below show the *full* discipline. Scale it to the change — the ceremony is negotiable, the evidence is not. Size the change first, then run only what the tier earns:
+
+| Tier | What it is | Design ceremony | Evidence (never scales) |
+|---|---|---|---|
+| **Trivial** | One-line / single-file / describable in one sentence (typo, config value, rename) | Skip `shape-spec`, `write-plan`, `plan-review` | `verification-gate`, then `code-review-loop` on the diff |
+| **Small** | One focused change, ≤ ~3 files, design obvious | Skip `shape-spec` and `plan-review`; a lightweight inline plan is enough | `verification-gate` → `code-review-loop` |
+| **Standard** | Multi-file, multi-session, or real design decisions | Full chain: `shape-spec` → `write-plan` → `plan-review` | `verification-gate` → `code-review-loop` |
+
+**The one rule that never scales:** `verification-gate` always runs, and `code-review-loop` runs on any diff you ship — on a typo as much as a rewrite. Ceremony scales to the change; **evidence does not scale to zero.** A skipped gate is how "trust me" comes back, which is the exact failure claudekit exists to prevent. When you're genuinely unsure which tier a change is, pick the smaller one and say so — the plan contract catches scope growth and upgrades the tier if the work turns out bigger.
+
 ### New feature
 *"There's a request. No code yet."*
 
@@ -156,7 +168,7 @@ For library/plugin authors before tagging. The audit catches stale deps and unac
 
 ---
 
-In practice, devs skip steps for trivial work. The chains show the full discipline; use what the task earns.
+In practice, devs skip steps for trivial work — so scale the chain deliberately, per **Sizing the work** above, rather than silently. The chains show the full discipline; the tier tells you how much of it this change earns — but the evidence gate is never the part you skip.
 
 ## Development
 

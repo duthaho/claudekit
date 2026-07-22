@@ -35,11 +35,17 @@ between `write-plan` and implementation.
 
 ## When NOT to Use
 
-- The plan is for a single-file, single-author change (use code review instead)
+- The change is **Trivial** or **Small** (see README "Sizing the work") — plan-review is a Standard-tier step; smaller changes go straight to implementation and `code-review-loop`
 - A previous plan-review already passed and the plan hasn't changed since
 - You don't have a written plan yet (use `write-plan` first)
 
 ## Process
+
+**Effort tier:** plan-review is a **Standard**-tier gate — it earns its cost when a
+plan carries real design decisions across multiple files. **Trivial** and **Small**
+changes skip it; their safety net is `verification-gate` plus `code-review-loop` on
+the diff, which never skip regardless of tier. Reviewing a one-task plan is the kind
+of ceremony that teaches people to route around the gates that matter.
 
 ### Step 1: Locate and read the plan
 
@@ -150,6 +156,7 @@ blockers.
 | "I'll skip the blockers I disagree with — they don't apply here." | Sometimes reviewers really are wrong, and an author's domain knowledge can override review. | Skipping a blocker silently is how plan reviews become advisory. The discipline is: skip is fine, but the rationale gets written down in the review artifact. If you can't write a one-line rationale, you don't disagree, you're rationalizing. | Apply Step 4's rule: every skipped blocker gets a one-line rationale. The rationale is the receipt for your choice. Reviewers reading the plan downstream will see the skip and the reason, not just the absence. |
 | "I'll fix the plan in my head and not bother editing the file." | Mental updates feel faster than file edits. | The plan you implement against is the plan in the file, not the one in your head. The mental version drifts during the days between review and implementation. The teammate who picks up a task sees the unfixed version and implements the unfixed plan. | Edit the file. Use the Edit tool, not "I'll rewrite it cleanly." Each change is small; the cumulative edit takes minutes. |
 | "I'll re-read the plan after applying fixes — but I'm sure it's consistent." | After 5 surgical edits, "I'm sure it's still consistent" is a comfortable belief. | Surgical edits drift. A fix that retitles task 4 may leave a `Blocked by: Task 4` reference dangling somewhere. A fix that splits a task into two may leave the numbering inconsistent. The drift is invisible to the author but obvious on a fresh read. | After Step 5's edits are applied, re-read the plan top to bottom. Catch the dangling references before the implementer does. |
+| "This is Small so it skips plan-review — so it can skip the verification gate too." | The tier model does say Small changes skip plan-review, so extending the logic feels consistent. | It isn't consistent — it conflates ceremony with evidence. Skipping plan-review on a Small change is the tier model working as designed; skipping `verification-gate`/`code-review-loop` is the tier model being used as an excuse to ship unverified. Those two gates never scale by tier, precisely because "it was only small" is the story told after every small change that broke production. | Skip plan-review for Trivial/Small — that's correct — but still run `verification-gate` and get `code-review-loop` on the diff. The gate is the one thing a smaller tier never buys you out of. |
 
 ## Evidence Requirements
 
