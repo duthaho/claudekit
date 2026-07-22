@@ -161,14 +161,21 @@ In practice, devs skip steps for trivial work. The chains show the full discipli
 ## Development
 
 CI (`.github/workflows/validate.yml`) lints every skill against the 8-section
-anatomy above, checks `plugin.json`/`marketplace.json` version sync, and
-enforces token budgets on the always-loaded skill/agent frontmatter (the
-"no agent-bloat" claim, measured). Run locally before committing:
+anatomy above, checks `plugin.json`/`marketplace.json` version sync, enforces
+token budgets on the always-loaded skill/agent frontmatter (the "no agent-bloat"
+claim, measured), and exercises the evidence gate. Run locally before committing:
 
 ```
 node scripts/validate-plugin.cjs
 node scripts/token-report.cjs --check
+node scripts/test-verify-evidence.cjs
 ```
+
+`scripts/verify-evidence.cjs` is the evidence gate itself — dogfooding the
+"every claim has evidence" philosophy against the agent's own output. It
+resolves `file:line` citations in an artifact (`--citations <file>`) and scans
+`git diff HEAD` for fake-green tampering — deleted test files, added test skips,
+new TODO/FIXME (`--tripwires`) — exiting non-zero when a claim can't be verified.
 
 ## Requirements
 

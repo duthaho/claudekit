@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skill/agent frontmatter with named budgets, enforced in CI via `--check` (#2)
 - CI workflow `.github/workflows/validate.yml` running the anatomy and
   token-budget checks on pushes to `main` and PRs (#1, #2)
+- `scripts/verify-evidence.cjs` — evidence gate that mechanically checks an
+  agent's claimed evidence: resolves `file:line` citations against real
+  paths/ranges (`--citations`) and scans `git diff HEAD` for fake-green
+  tampering — deleted test files, added test skips, new TODO/FIXME
+  (`--tripwires`); loud gate (exit 1 violations, 2 usage/crash). Deliberately
+  does not attempt deep test-tamper analysis
+- `scripts/verify-evidence-hook.cjs` — fail-open Stop/PostToolUse wrapper that
+  surfaces tripwire findings as advisory, never blocking
+- `scripts/test-verify-evidence.cjs` — zero-dependency fixture runner for the
+  evidence gate (26 cases), added to CI
 
 ## [4.0.0] - 2026-05-07
 

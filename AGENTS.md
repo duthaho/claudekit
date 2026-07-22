@@ -12,7 +12,9 @@ docs website (`website/`, Astro Starlight). The only repo-level check is
 - Plugin: nothing to build. Lint before committing: `node scripts/validate-plugin.cjs`
   — validates every SKILL.md against the 8-section anatomy and plugin/marketplace
   version sync; `node scripts/token-report.cjs --check` — enforces token budgets
-  on skill/agent frontmatter (both run in CI, `.github/workflows/validate.yml`).
+  on skill/agent frontmatter; `node scripts/test-verify-evidence.cjs` — exercises
+  the evidence gate (`scripts/verify-evidence.cjs`: citation resolution +
+  fake-green tripwires). All three run in CI, `.github/workflows/validate.yml`.
 - Test by installing locally:
   `/plugin marketplace add <path-or-repo>` → `/plugin install claudekit` → `/claudekit:init`
 - Website (`cd website/`): `npm install`, `npm run dev`, `npm run build`,

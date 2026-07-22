@@ -14,3 +14,5 @@ jobs:
         run: node scripts/validate-plugin.cjs
       - name: Check frontmatter token budgets
         run: node scripts/token-report.cjs --check
+      - name: Test the evidence gate
+        run: node scripts/test-verify-evidence.cjs
